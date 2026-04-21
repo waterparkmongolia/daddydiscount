@@ -751,7 +751,7 @@ export default function App() {
                     </div>
 
                   {/* Actions — single row */}
-                  <div className="flex items-center gap-3 overflow-x-auto no-scrollbar border-t border-slate-100 pt-2">
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2">
                     {/* Like */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => handleLike(member.id)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}>
