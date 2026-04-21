@@ -28,6 +28,7 @@ export default function App() {
   const [inviteId, setInviteId] = useState<string | null>(null);
   const [superAmount, setSuperAmount] = useState('');
   const [isUserRegistered, setIsUserRegistered] = useState(false);
+  const [tick, setTick] = useState(0);
   const [qpayInvoice, setQpayInvoice] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<{
@@ -127,13 +128,44 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Real-time countdown — re-renders every second
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTimeLeft = (expiresAt: number | null): string => {
+    if (expiresAt === null) return '∞';
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return '00 цаг 00 мин 00 сек';
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return `${String(h).padStart(2, '0')} цаг ${String(m).padStart(2, '0')} мин ${String(s).padStart(2, '0')} сек`;
+  };
+
+  const getTimeLeftPercent = (member: Member): number => {
+    if (!member.expiresAt) return 100;
+    const total = member.expiresAt - member.createdAt;
+    const remaining = member.expiresAt - Date.now();
+    if (total <= 0) return 0;
+    return Math.max(0, Math.min(100, (remaining / total) * 100));
+  };
+
+  const getTimerColor = (percent: number) => {
+    if (percent > 50) return { bar: 'bg-emerald-500', text: 'text-emerald-600', glow: 'shadow-[0_0_8px_rgba(16,185,129,0.4)]' };
+    if (percent > 20) return { bar: 'bg-amber-500', text: 'text-amber-600', glow: 'shadow-[0_0_8px_rgba(245,158,11,0.4)]' };
+    return { bar: 'bg-red-500', text: 'text-red-600', glow: 'shadow-[0_0_8px_rgba(239,68,68,0.4)]' };
+  };
+
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
       const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.phone.includes(searchQuery);
       const isNotExpired = m.expiresAt === null || m.expiresAt > Date.now();
       return matchesSearch && isNotExpired;
     }).sort((a, b) => b.createdAt - a.createdAt);
-  }, [members, searchQuery]);
+  // tick ensures expired members are filtered out in real-time
+  }, [members, searchQuery, tick]);
 
   const handleAddMember = (e: FormEvent) => {
     e.preventDefault();
@@ -453,12 +485,6 @@ export default function App() {
                     key={member.id}
                     className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm relative overflow-hidden"
                   >
-                    {member.expiresAt && (
-                      <div className="absolute top-0 right-0 px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-bold uppercase rounded-bl-lg flex items-center gap-1 z-10">
-                        <Clock className="w-2.5 h-2.5" />
-                        Дуусах: {new Date(member.expiresAt).toLocaleDateString()}
-                      </div>
-                    )}
                     {/* User Section (Top) */}
                     <div className="space-y-3">
                       <div className="flex items-start gap-2.5">
@@ -472,6 +498,29 @@ export default function App() {
                       </div>
                       
                       <div className="-mx-3 px-3 py-2.5 bg-slate-50/50 border-y border-slate-100 space-y-1.5">
+                        {/* Countdown timer — only for time-limited posts */}
+                        {member.expiresAt !== null && (() => {
+                          const pct = getTimeLeftPercent(member);
+                          const color = getTimerColor(pct);
+                          return (
+                            <>
+                              <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-slate-400 font-bold uppercase tracking-wider">Хугацаа -</span>
+                                <span className={`font-bold font-mono tabular-nums ${color.text}`}>
+                                  {formatTimeLeft(member.expiresAt)}
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
+                                <motion.div
+                                  animate={{ width: `${pct}%` }}
+                                  transition={{ duration: 0.8, ease: 'linear' }}
+                                  className={`h-full ${color.bar} ${color.glow}`}
+                                />
+                              </div>
+                            </>
+                          );
+                        })()}
+
                         <div className="flex justify-between items-center text-[10px]">
                             <span className="text-slate-400 font-bold uppercase tracking-wider">Биелэлт -</span>
                             <span className="font-bold text-emerald-600">
@@ -483,7 +532,7 @@ export default function App() {
                             <span className="font-bold text-slate-600">{(member.goal || 0).toLocaleString()}₮</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden mt-1">
-                            <motion.div 
+                            <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${Math.min(100, (calculateAchievement(member) / (member.goal || 1)) * 100)}%` }}
                                 className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
