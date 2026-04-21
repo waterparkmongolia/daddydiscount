@@ -624,6 +624,15 @@ export default function App() {
                             )}
                           </p>
                         </div>
+                        {/* Follow button — top right of card */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); cancelLongPress(); handleFollow(member.id); }}
+                          onMouseDown={e => e.stopPropagation()}
+                          className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 border ${isFollowing ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                        >
+                          <UserCheck className="w-3 h-3" />
+                          {isFollowing ? 'Дагаж байна' : 'Дагах'}
+                        </button>
                       </div>
                       
                       <div className="-mx-3 px-3 py-2.5 bg-slate-50/50 border-y border-slate-100 space-y-1.5">
@@ -704,18 +713,6 @@ export default function App() {
                         <Share2 className="w-3.5 h-3.5" />
                       </button>
                       <span className={`text-[11px] font-bold min-w-[16px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
-                    </div>
-
-                    {/* Follow Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
-                      <button
-                        onClick={() => handleFollow(member.id)}
-                        className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${isFollowing ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100 ring-indigo-100'}`}
-                        title={isFollowing ? 'Дагахаа болих' : 'Дагах'}
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[11px] font-bold text-indigo-500 min-w-[12px]">{(member.followers || []).length}</span>
                     </div>
 
                     {/* Membership Action */}
