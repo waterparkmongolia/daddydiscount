@@ -29,4 +29,5 @@ export interface RegisteredUser {
   invitedByPhone: string;
   createdAt: number;
   memberships: { memberId: string; tier: MembershipTier }[];
+  keys: { id: string; type: 'bronze' | 'silver' | 'gold' | 'diamond' }[];
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
-import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye } from 'lucide-react';
+import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react';
 import { Member, RegisteredUser, MembershipTier } from './types';
@@ -46,6 +46,7 @@ export default function App() {
   const [tick, setTick] = useState(0);
 
   const [usersSubTab, setUsersSubTab] = useState<'all' | 'top'>('all');
+  const [keyModalId, setKeyModalId] = useState<string | null>(null);
 
   const deviceId = useMemo(() => {
     let id = localStorage.getItem('deviceId');
@@ -80,7 +81,12 @@ export default function App() {
     }
 
     if (savedRegUsers) {
-      setRegisteredUsers(JSON.parse(savedRegUsers));
+      const parsed = JSON.parse(savedRegUsers);
+      setRegisteredUsers(parsed.map((u: any) => ({
+        ...u,
+        memberships: u.memberships ?? [],
+        keys: u.keys ?? [],
+      })));
     }
 
     if (savedMembers) {
@@ -174,6 +180,18 @@ export default function App() {
       return changed ? updated : prev;
     });
   }, [activeTab, deviceId]);
+
+  const formatTimeShort = (expiresAt: number | null): string => {
+    if (expiresAt === null) return '';
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return '0с';
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    if (h > 0) return `${h}ц ${String(m).padStart(2, '0')}м`;
+    if (m > 0) return `${m}м ${String(s).padStart(2, '0')}с`;
+    return `${s}с`;
+  };
 
   const formatTimeLeft = (expiresAt: number | null): string => {
     if (expiresAt === null) return '∞';
@@ -474,6 +492,8 @@ export default function App() {
       password: data.password || '',
       invitedByPhone: cleanInvitedBy || null,
       createdAt: Date.now(),
+      memberships: [],
+      keys: [{ id: crypto.randomUUID(), type: 'bronze' }],
     };
 
     // Update inviter's invite count
@@ -633,6 +653,9 @@ export default function App() {
                   const isFollowing = (member.followers || []).includes(currentUser?.id || '');
                   const userMembership = (currentUser?.memberships || []).find(m => m.memberId === member.id);
                   const tierInfo = userMembership ? MEMBERSHIP_TIERS.find(t => t.tier === userMembership.tier) : null;
+                  const pct = getTimeLeftPercent(member);
+                  const timerColor = getTimerColor(pct);
+                  const ringC = 2 * Math.PI * 22;
 
                   return (
                   <motion.div
@@ -656,8 +679,30 @@ export default function App() {
                     {/* User Section (Top) */}
                     <div className="space-y-3 mt-3">
                       <div className="flex items-start gap-2.5">
-                        <div className="w-9 h-9 shrink-0 mt-0.5 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-black text-base">
-                          {member.name.charAt(0)}
+                        <div className="flex flex-col items-center gap-0.5 shrink-0">
+                          <div className="relative w-12 h-12">
+                            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 48 48" style={{ transform: 'rotate(-90deg)' }}>
+                              <circle cx="24" cy="24" r="22" fill="none" stroke="#e2e8f0" strokeWidth="2.5"/>
+                              {member.expiresAt !== null && (
+                                <circle cx="24" cy="24" r="22" fill="none"
+                                  stroke={pct > 50 ? '#10b981' : pct > 20 ? '#f59e0b' : '#ef4444'}
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeDasharray={ringC}
+                                  strokeDashoffset={ringC * (1 - pct / 100)}
+                                  style={{ transition: 'stroke-dashoffset 0.8s linear' }}
+                                />
+                              )}
+                            </svg>
+                            <div className="absolute inset-1.5 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-black text-sm">
+                              {member.name.charAt(0)}
+                            </div>
+                          </div>
+                          {member.expiresAt !== null && (
+                            <span className={`text-[7px] font-bold font-mono tabular-nums leading-none ${timerColor.text}`}>
+                              {formatTimeShort(member.expiresAt)}
+                            </span>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-slate-800 text-sm leading-none truncate">{member.name}</h3>
@@ -686,29 +731,6 @@ export default function App() {
                       </div>
                       
                       <div className="-mx-3 px-3 py-2.5 bg-slate-50/50 border-y border-slate-100 space-y-1.5">
-                        {/* Countdown timer — only for time-limited posts */}
-                        {member.expiresAt !== null && (() => {
-                          const pct = getTimeLeftPercent(member);
-                          const color = getTimerColor(pct);
-                          return (
-                            <>
-                              <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-slate-400 font-bold uppercase tracking-wider">Хугацаа -</span>
-                                <span className={`font-bold font-mono tabular-nums ${color.text}`}>
-                                  {formatTimeLeft(member.expiresAt)}
-                                </span>
-                              </div>
-                              <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
-                                <motion.div
-                                  animate={{ width: `${pct}%` }}
-                                  transition={{ duration: 0.8, ease: 'linear' }}
-                                  className={`h-full ${color.bar} ${color.glow}`}
-                                />
-                              </div>
-                            </>
-                          );
-                        })()}
-
                         <div className="flex justify-between items-center text-[10px] gap-2">
                           <span className="text-slate-400 font-bold uppercase tracking-wider shrink-0">Биелэлт явц</span>
                           <span className="font-bold text-emerald-600 shrink-0">
@@ -728,68 +750,52 @@ export default function App() {
                       </div>
                     </div>
 
-                  {/* Actions Section (Bottom) */}
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-slate-50 pt-1.5 transition-all">
-                    {/* Like Action */}
-                    <div className="flex items-center gap-1.5 pr-1.5">
-                       <button
-                        onClick={() => handleLike(member.id)}
-                        className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}
-                        title={member.likedBy?.includes(currentUser?.id || '') ? "Unlike" : "Like"}
-                      >
-                        <ThumbsUp className={`w-3.5 h-3.5 ${member.likedBy?.includes(currentUser?.id || '') ? 'fill-current' : ''}`} />
-                      </button>
-                      <span className={`text-[11px] font-bold min-w-[16px] ${member.likedBy?.includes(currentUser?.id || '') ? 'text-blue-600' : 'text-slate-500'}`}>{member.likes || 0}</span>
+                  {/* Actions: Үнэгүй / Paid */}
+                  <div className="space-y-1.5 border-t border-slate-100 pt-2">
+                    {/* Үнэгүй row */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[7px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 shrink-0 leading-none py-1">Үнэгүй</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleLike(member.id)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}>
+                            <ThumbsUp className={`w-3.5 h-3.5 ${member.likedBy?.includes(currentUser?.id || '') ? 'fill-current' : ''}`} />
+                          </button>
+                          <span className={`text-[11px] font-bold min-w-[12px] ${member.likedBy?.includes(currentUser?.id || '') ? 'text-blue-600' : 'text-slate-500'}`}>{member.likes || 0}</span>
+                        </div>
+                        <button onClick={() => handleActionGuard(() => setKeyModalId(member.id))} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-90 ring-1 ring-amber-100 flex items-center justify-center">
+                          <Key className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleShare(member)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.sharedBy?.includes(currentUser?.id || '') ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 ring-slate-100'}`}>
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+                          <span className={`text-[11px] font-bold min-w-[12px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Super Support Action (Now Green too as requested) */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
-                      <button
-                        onClick={() => setSuperSupportId(member.id)}
-                        className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-all active:scale-95 flex items-center justify-center font-black shadow-sm ring-1 ring-emerald-100"
-                      >
-                        <span className="text-base leading-none drop-shadow-sm">₮</span>
-                      </button>
-                      <span className="text-[11px] font-bold text-emerald-600 min-w-[24px]">{formatSupport(member.superSupports)}</span>
-                    </div>
-
-                    {/* Share Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
-                        <button
-                        onClick={() => handleShare(member)}
-                        className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.sharedBy?.includes(currentUser?.id || '') ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 ring-slate-100'}`}
-                        title="Share on Facebook"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                      </button>
-                      <span className={`text-[11px] font-bold min-w-[16px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
-                    </div>
-
-                    {/* Membership Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
-                      <button
-                        onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))}
-                        className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}
-                        title="Гишүүнчлэл"
-                      >
-                        <Crown className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[11px] font-bold text-slate-400 min-w-[16px]">
-                        {registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length}
-                      </span>
-                    </div>
-
-                    {/* Invite / Register Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }}
-                        onMouseDown={e => e.stopPropagation()}
-                        className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all active:scale-90 flex items-center justify-center ring-1 ring-indigo-100"
-                        title="Бүртгүүлэх"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[11px] font-bold text-slate-400 min-w-[16px]">{member.invites || 0}</span>
+                    {/* Paid row */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[7px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-1.5 py-1 rounded border border-indigo-100 shrink-0 leading-none">Paid</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }} onMouseDown={e => e.stopPropagation()} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all active:scale-90 ring-1 ring-indigo-100 flex items-center justify-center">
+                            <UserPlus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{member.invites || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setSuperSupportId(member.id)} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-all active:scale-95 font-black ring-1 ring-emerald-100 flex items-center justify-center">
+                            <span className="text-base leading-none">₮</span>
+                          </button>
+                          <span className="text-[11px] font-bold text-emerald-600 min-w-[20px]">{formatSupport(member.superSupports)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}>
+                            <Crown className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -1599,6 +1605,78 @@ export default function App() {
                       </button>
                     );
                   })}
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* Key Modal */}
+      <AnimatePresence>
+        {keyModalId && (() => {
+          const keyMember = members.find(m => m.id === keyModalId);
+          const userKeys = currentUser?.keys || [];
+          const keyCounts = {
+            bronze: userKeys.filter(k => k.type === 'bronze').length,
+            silver: userKeys.filter(k => k.type === 'silver').length,
+            gold:   userKeys.filter(k => k.type === 'gold').length,
+            diamond: userKeys.filter(k => k.type === 'diamond').length,
+          };
+          const totalKeys = Object.values(keyCounts).reduce((a, b) => a + b, 0);
+          const KEY_DEFS = [
+            { type: 'bronze',  label: 'Хүрэл',  color: 'text-amber-700',  bg: 'bg-amber-100'  },
+            { type: 'silver',  label: 'Мөнгөн', color: 'text-slate-500',  bg: 'bg-slate-100'  },
+            { type: 'gold',    label: 'Алтан',  color: 'text-yellow-600', bg: 'bg-yellow-100' },
+            { type: 'diamond', label: 'Алмаз',  color: 'text-blue-500',   bg: 'bg-blue-100'   },
+          ] as const;
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => setKeyModalId(null)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl">
+                <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <Key className="w-6 h-6 mb-1 text-amber-200" />
+                      <h3 className="text-lg font-bold">Түлхүүр ашиглах</h3>
+                      <p className="text-amber-100 text-xs mt-0.5">{keyMember?.name}</p>
+                    </div>
+                    <button onClick={() => setKeyModalId(null)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-5 space-y-4">
+                  {/* Key inventory */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {KEY_DEFS.map(k => (
+                      <div key={k.type} className={`p-2.5 rounded-xl text-center ${k.bg}`}>
+                        <Key className={`w-4 h-4 mx-auto mb-1 ${k.color}`} />
+                        <p className={`text-lg font-black leading-none ${k.color}`}>{keyCounts[k.type]}</p>
+                        <p className={`text-[8px] font-bold uppercase tracking-wider mt-0.5 ${k.color} opacity-70`}>{k.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {totalKeys > 0 ? (
+                    <div className="space-y-2">
+                      <button className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm active:scale-95 transition-all">
+                        Өөрөө хэрэглэх
+                      </button>
+                      <button className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm active:scale-95 transition-all hover:bg-slate-200">
+                        Хүнд өгөх
+                      </button>
+                      <p className="text-center text-[9px] text-slate-400 pt-1">Яг юу хийхийг удахгүй тодруулна</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 space-y-1">
+                      <Key className="w-8 h-8 text-slate-200 mx-auto" />
+                      <p className="text-sm font-bold text-slate-500">Түлхүүр байхгүй байна</p>
+                      <p className="text-[10px] text-slate-400">Бүртгүүлснээр 1 хүрэл түлхүүр авна</p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>
