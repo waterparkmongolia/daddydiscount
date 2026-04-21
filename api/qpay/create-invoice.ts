@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const invoiceData = {
       invoice_code: process.env.QPAY_INVOICE_CODE,
       sender_invoice_no: `DD${Date.now()}`.substring(0, 20),
-      invoice_receiver_code: 'TERMINAL',
+      invoice_receiver_code: process.env.QPAY_USERNAME!,
       invoice_description: description || 'Daddy Discounter',
       amount: Number(amount),
       callback_url: `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://discounter-phi.vercel.app'}/api/qpay/callback`,
