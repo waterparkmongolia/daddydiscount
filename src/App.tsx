@@ -737,7 +737,7 @@ export default function App() {
                     </div>
 
                     {/* Membership Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2">
+                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
                       <button
                         onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))}
                         className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}
@@ -745,10 +745,13 @@ export default function App() {
                       >
                         <Crown className="w-3.5 h-3.5" />
                       </button>
+                      <span className="text-[11px] font-bold text-slate-400 min-w-[16px]">
+                        {registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length}
+                      </span>
                     </div>
 
                     {/* Invite / Register Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 ml-auto shrink-0">
+                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
                       <button
                         onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }}
                         onMouseDown={e => e.stopPropagation()}
@@ -757,6 +760,7 @@ export default function App() {
                       >
                         <UserPlus className="w-3.5 h-3.5" />
                       </button>
+                      <span className="text-[11px] font-bold text-slate-400 min-w-[16px]">{member.invites || 0}</span>
                     </div>
                   </div>
                 </motion.div>
