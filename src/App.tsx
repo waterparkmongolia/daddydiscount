@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
-import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock } from 'lucide-react';
+import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react';
 import { Member, RegisteredUser, MembershipTier } from './types';
@@ -44,6 +44,14 @@ export default function App() {
   const [superAmount, setSuperAmount] = useState('');
   const [isUserRegistered, setIsUserRegistered] = useState(false);
   const [tick, setTick] = useState(0);
+
+  const [usersSubTab, setUsersSubTab] = useState<'all' | 'top'>('all');
+
+  const deviceId = useMemo(() => {
+    let id = localStorage.getItem('deviceId');
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id); }
+    return id;
+  }, []);
 
   // Follow / Membership / Admin
   const [membershipTargetId, setMembershipTargetId] = useState<string | null>(null);
@@ -91,6 +99,8 @@ export default function App() {
         followers: m.followers ?? [],
         listingPaid: m.listingPaid ?? false,
         contributions: m.contributions ?? [],
+        views: m.views ?? 0,
+        viewedBy: m.viewedBy ?? [],
       }));
       setMembers(migrated);
     } else {
@@ -108,13 +118,13 @@ export default function App() {
           superSupports: 10000,
           createdAt: Date.now(),
           expiresAt: Date.now() + 86400000,
-          likedBy: [], sharedBy: [], followers: [], listingPaid: false, contributions: [],
+          likedBy: [], sharedBy: [], followers: [], listingPaid: false, contributions: [], views: 0, viewedBy: [],
         },
         {
             id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000,
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
-            likedBy: [], sharedBy: [], followers: [], listingPaid: true, contributions: [],
+            likedBy: [], sharedBy: [], followers: [], listingPaid: true, contributions: [], views: 0, viewedBy: [],
           }
       ];
       setMembers(initial);
@@ -150,6 +160,20 @@ export default function App() {
     const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Track unique views per device when posts tab is active
+  useEffect(() => {
+    if (activeTab !== 'posts' || members.length === 0) return;
+    setMembers(prev => {
+      let changed = false;
+      const updated = prev.map(m => {
+        if ((m.viewedBy || []).includes(deviceId)) return m;
+        changed = true;
+        return { ...m, views: (m.views || 0) + 1, viewedBy: [...(m.viewedBy || []), deviceId] };
+      });
+      return changed ? updated : prev;
+    });
+  }, [activeTab, deviceId]);
 
   const formatTimeLeft = (expiresAt: number | null): string => {
     if (expiresAt === null) return '∞';
@@ -233,6 +257,8 @@ export default function App() {
       followers: [],
       listingPaid: data.listingPaid ?? false,
       contributions: [],
+      views: 0,
+      viewedBy: [],
     };
 
     setMembers([newMember, ...members]);
@@ -635,9 +661,12 @@ export default function App() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-slate-800 text-sm leading-none truncate">{member.name}</h3>
-                          <p className="text-slate-400 text-[9px] mt-1 flex items-center gap-1">
+                          <p className="text-slate-400 text-[9px] mt-1 flex items-center gap-1.5">
                             <UserCheck className="w-2.5 h-2.5" />
                             {(member.followers || []).length} дагагч
+                            <span className="text-slate-300">·</span>
+                            <Eye className="w-2.5 h-2.5" />
+                            {(member.views || 0).toLocaleString()} үзэлт
                             {tierInfo && (
                               <span className={`ml-1 px-1.5 py-0.5 rounded font-bold text-[8px] border ${tierInfo.bg} ${tierInfo.color}`}>
                                 {tierInfo.label}
@@ -775,117 +804,146 @@ export default function App() {
         </div>
         ) : activeTab === 'users' ? (
           <div className="max-w-4xl mx-auto space-y-4 pb-20">
-            {/* Login / Register prompt */}
-            {!currentUser && (
-              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-indigo-800">Нэвтрэх / Бүртгүүлэх</p>
-                  <p className="text-[10px] text-indigo-400 mt-0.5">Дэмжлэгийн оноо хянах, үйлдэл хийхийн тулд нэвтэрнэ үү</p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => { setAuthMode('login'); setActiveTab('profile'); }}
-                    className="px-3 py-1.5 bg-white text-indigo-600 rounded-lg font-bold text-xs border border-indigo-200 hover:bg-indigo-100 transition-all active:scale-95"
-                  >
-                    Нэвтрэх
-                  </button>
-                  <button
-                    onClick={() => { setAuthMode('register'); setActiveTab('profile'); }}
-                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition-all active:scale-95"
-                  >
-                    Бүртгүүлэх
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Sub-tab toggle */}
+            <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm">
+              <button
+                onClick={() => setUsersSubTab('all')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${usersSubTab === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <UsersIcon className="w-3.5 h-3.5" />
+                Нийт Хэрэглэгч
+              </button>
+              <button
+                onClick={() => setUsersSubTab('top')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${usersSubTab === 'top' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Crown className="w-3.5 h-3.5" />
+                Топ Хэрэглэгч
+              </button>
+            </div>
 
-            {/* Top 3 Ranking */}
-            {registeredUsers.length > 0 && (() => {
-              const MEDAL = [
-                { label: '1', bg: 'bg-yellow-400', cardBg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600' },
-                { label: '2', bg: 'bg-slate-400',  cardBg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-500'  },
-                { label: '3', bg: 'bg-amber-600',  cardBg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700'  },
-              ];
-              const top3 = [...registeredUsers]
-                .map(user => ({ user, score: calculateUserScore(user) }))
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 3);
-              return (
+            <AnimatePresence mode="wait">
+            {usersSubTab === 'all' ? (
+              <motion.div key="all" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} className="space-y-4">
+                {/* Login / Register prompt */}
+                {!currentUser && (
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-indigo-800">Нэвтрэх / Бүртгүүлэх</p>
+                      <p className="text-[10px] text-indigo-400 mt-0.5">Дэмжлэгийн оноо хянах, үйлдэл хийхийн тулд нэвтэрнэ үү</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => { setAuthMode('login'); setActiveTab('profile'); }}
+                        className="px-3 py-1.5 bg-white text-indigo-600 rounded-lg font-bold text-xs border border-indigo-200 hover:bg-indigo-100 transition-all active:scale-95"
+                      >
+                        Нэвтрэх
+                      </button>
+                      <button
+                        onClick={() => { setAuthMode('register'); setActiveTab('profile'); }}
+                        className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition-all active:scale-95"
+                      >
+                        Бүртгүүлэх
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Full Users List */}
                 <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-yellow-50 to-slate-50">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Crown className="w-5 h-5 text-yellow-500" />
-                      Шилдэг Дэмжигчид
-                    </h3>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Дэмжлэгийн оноо</span>
-                  </div>
-                  <div className="divide-y divide-slate-100">
-                    {top3.map(({ user, score }, idx) => {
-                      const m = MEDAL[idx];
-                      return (
-                        <div key={user.id} className={`px-5 py-3.5 flex items-center gap-3 ${m.cardBg}`}>
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-xs shrink-0 ${m.bg}`}>
-                            {m.label}
-                          </div>
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm uppercase border ${m.border} ${m.text} bg-white shrink-0`}>
-                            {user.name.charAt(0)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-slate-800 leading-none truncate">{user.name}</h4>
-                            <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{user.phone}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-sm font-black ${m.text}`}>{score.toLocaleString()}₮</p>
-                            <p className="text-[8px] text-slate-400 uppercase tracking-wider">оноо</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Full Users List */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                        <UsersIcon className="w-5 h-5 text-indigo-500" />
-                        Бүртгэлтэй хэрэглэгчид
+                      <UsersIcon className="w-5 h-5 text-indigo-500" />
+                      Бүртгэлтэй хэрэглэгчид
                     </h3>
                     <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-full">{registeredUsers.length}</span>
-                </div>
-                <div className="divide-y divide-slate-50">
+                  </div>
+                  <div className="divide-y divide-slate-50">
                     {registeredUsers.length > 0 ? registeredUsers.map(user => (
-                        <div key={user.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold text-sm uppercase group-hover:bg-indigo-100 transition-colors">
-                                    {user.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800 leading-none">{user.name}</h4>
-                                    <p className="text-[10px] text-slate-400 mt-1.5 font-mono">{user.phone}</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                {user.invitedByPhone && (
-                                    <div className="text-[9px] text-slate-400 flex flex-col items-end gap-0.5">
-                                        <span className="uppercase font-bold text-[8px] tracking-widest text-slate-300">Урьсан:</span>
-                                        <div className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">
-                                          {user.invitedByPhone}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                      <div key={user.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold text-sm uppercase group-hover:bg-indigo-100 transition-colors">
+                            {user.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-800 leading-none">{user.name}</h4>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-mono">{user.phone}</p>
+                          </div>
                         </div>
+                        <div className="text-right">
+                          {user.invitedByPhone && (
+                            <div className="text-[9px] text-slate-400 flex flex-col items-end gap-0.5">
+                              <span className="uppercase font-bold text-[8px] tracking-widest text-slate-300">Урьсан:</span>
+                              <div className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">
+                                {user.invitedByPhone}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )) : (
-                        <div className="py-20 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
-                            <UsersIcon className="w-12 h-12 opacity-20" />
-                            <p className="text-xs font-bold uppercase tracking-widest mt-4">Бүртгэлтэй хэрэглэгч алга</p>
-                        </div>
+                      <div className="py-20 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
+                        <UsersIcon className="w-12 h-12 opacity-20" />
+                        <p className="text-xs font-bold uppercase tracking-widest mt-4">Бүртгэлтэй хэрэглэгч алга</p>
+                      </div>
                     )}
+                  </div>
                 </div>
-            </div>
+              </motion.div>
+            ) : (
+              <motion.div key="top" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} className="space-y-3">
+                {registeredUsers.length === 0 ? (
+                  <div className="py-20 flex flex-col items-center justify-center text-slate-300 bg-white border border-slate-200 rounded-2xl">
+                    <Crown className="w-12 h-12 opacity-20" />
+                    <p className="text-xs font-bold uppercase tracking-widest mt-4">Бүртгэлтэй хэрэглэгч алга</p>
+                  </div>
+                ) : (() => {
+                  const MEDAL = [
+                    { label: '1', bg: 'bg-yellow-400', cardBg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600' },
+                    { label: '2', bg: 'bg-slate-400',  cardBg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-500'  },
+                    { label: '3', bg: 'bg-amber-600',  cardBg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700'  },
+                  ];
+                  const scored = [...registeredUsers]
+                    .map(user => ({ user, score: calculateUserScore(user) }))
+                    .sort((a, b) => b.score - a.score);
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-yellow-50 to-slate-50">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                          <Crown className="w-5 h-5 text-yellow-500" />
+                          Шилдэг Дэмжигчид
+                        </h3>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Дэмжлэгийн оноо</span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {scored.map(({ user, score }, idx) => {
+                          const medal = idx < 3 ? MEDAL[idx] : null;
+                          return (
+                            <div key={user.id} className={`px-5 py-3.5 flex items-center gap-3 ${medal?.cardBg ?? ''}`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${medal ? `${medal.bg} text-white` : 'bg-slate-100 text-slate-400'}`}>
+                                {idx + 1}
+                              </div>
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm uppercase border bg-white shrink-0 ${medal ? `${medal.border} ${medal.text}` : 'border-slate-200 text-slate-500'}`}>
+                                {user.name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-bold text-slate-800 leading-none truncate">{user.name}</h4>
+                                <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{user.phone}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className={`text-sm font-black ${medal ? medal.text : 'text-slate-400'}`}>{score.toLocaleString()}₮</p>
+                                <p className="text-[8px] text-slate-400 uppercase tracking-wider">оноо</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </motion.div>
+            )}
+            </AnimatePresence>
           </div>
         ) : (
           <div className="max-w-xl mx-auto space-y-6 pb-20 px-4">
