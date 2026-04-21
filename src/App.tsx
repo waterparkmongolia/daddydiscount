@@ -23,6 +23,8 @@ export default function App() {
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regInvitedBy, setRegInvitedBy] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('register');
+  const [loginPhone, setLoginPhone] = useState('');
 
   const [superSupportId, setSuperSupportId] = useState<string | null>(null);
   const [inviteId, setInviteId] = useState<string | null>(null);
@@ -420,6 +422,20 @@ export default function App() {
     setActiveTab('posts');
   };
 
+  const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    const clean = loginPhone.replace(/\D/g, '');
+    const found = registeredUsers.find(u => u.phone === clean);
+    if (found) {
+      setCurrentUser(found);
+      setLoginPhone('');
+      setActiveTab('profile');
+    } else {
+      alert('Энэ дугаараар бүртгэл олдсонгүй. Эхлээд бүртгүүлнэ үү.');
+      setAuthMode('register');
+    }
+  };
+
   const formatSupport = (amount: number) => {
     if (amount >= 1000) {
       const kValue = (amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1);
@@ -521,17 +537,16 @@ export default function App() {
                           );
                         })()}
 
-                        <div className="flex justify-between items-center text-[10px]">
-                            <span className="text-slate-400 font-bold uppercase tracking-wider">Биелэлт -</span>
-                            <span className="font-bold text-emerald-600">
-                                {calculateAchievement(member).toLocaleString()}₮
-                            </span>
+                        <div className="flex justify-between items-center text-[10px] gap-2">
+                          <span className="text-slate-400 font-bold uppercase tracking-wider shrink-0">Биелэлт явц</span>
+                          <span className="font-bold text-emerald-600 shrink-0">
+                            {Math.min(100, Math.round((calculateAchievement(member) / (member.goal || 1)) * 100))}%
+                          </span>
+                          <span className="text-slate-300 shrink-0">–</span>
+                          <span className="text-slate-400 font-bold uppercase tracking-wider shrink-0">Зорилго</span>
+                          <span className="font-bold text-slate-600 truncate">{(member.goal || 0).toLocaleString()}₮</span>
                         </div>
-                        <div className="flex justify-between items-center text-[10px]">
-                            <span className="text-slate-400 font-bold uppercase tracking-wider">Зорилго -</span>
-                            <span className="font-bold text-slate-600">{(member.goal || 0).toLocaleString()}₮</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden mt-1">
+                        <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${Math.min(100, (calculateAchievement(member) / (member.goal || 1)) * 100)}%` }}
@@ -603,57 +618,116 @@ export default function App() {
         </div>
         ) : activeTab === 'users' ? (
           <div className="max-w-4xl mx-auto space-y-6 pb-20">
-            {/* Registration Form in Tab */}
+            {/* Auth Form */}
             {!currentUser && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white border border-indigo-100 rounded-2xl p-6 shadow-sm"
               >
-                <h3 className="text-lg font-bold text-indigo-800 mb-4 flex items-center gap-2">
-                  <UserPlus className="w-5 h-5" />
-                  Шинээр бүртгүүлэх
-                </h3>
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нэр</label>
-                      <input 
-                        required
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        placeholder="Таны нэр"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Утас</label>
-                      <input 
-                        required
-                        type="tel"
-                        value={regPhone}
-                        onChange={(e) => setRegPhone(e.target.value)}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        placeholder="9999XXXX"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Урьсан хүний утас</label>
-                      <input 
-                        value={regInvitedBy}
-                        onChange={(e) => setRegInvitedBy(e.target.value)}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        placeholder="9911XXXX"
-                      />
-                    </div>
-                  </div>
-                  <div className="p-4 bg-indigo-50 rounded-xl flex items-center justify-between border border-indigo-100">
-                    <div className="text-xs text-indigo-600 font-medium italic">Бүртгэлийн хураамж: 5,000₮ (Демо)</div>
-                    <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm shadow-md active:scale-95 transition-all">
-                      БҮРТГҮҮЛЭХ
-                    </button>
-                  </div>
-                </form>
+                {/* Toggle */}
+                <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6">
+                  <button
+                    onClick={() => setAuthMode('login')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'login' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    НЭВТРЭХ
+                  </button>
+                  <button
+                    onClick={() => setAuthMode('register')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${authMode === 'register' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    БҮРТГҮҮЛЭХ
+                  </button>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {authMode === 'login' ? (
+                    <motion.form
+                      key="login"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      onSubmit={handleLogin}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Утасны дугаар</label>
+                        <input
+                          required
+                          type="tel"
+                          value={loginPhone}
+                          onChange={(e) => setLoginPhone(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                          placeholder="9999XXXX"
+                        />
+                      </div>
+                      <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all">
+                        НЭВТРЭХ
+                      </button>
+                      <p className="text-center text-[10px] text-slate-400">
+                        Бүртгэлгүй бол{' '}
+                        <button type="button" onClick={() => setAuthMode('register')} className="text-indigo-500 font-bold underline">
+                          бүртгүүлнэ үү
+                        </button>
+                      </p>
+                    </motion.form>
+                  ) : (
+                    <motion.form
+                      key="register"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      onSubmit={handleRegister}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нэр</label>
+                          <input
+                            required
+                            value={regName}
+                            onChange={(e) => setRegName(e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Таны нэр"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Утас</label>
+                          <input
+                            required
+                            type="tel"
+                            value={regPhone}
+                            onChange={(e) => setRegPhone(e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="9999XXXX"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Урьсан хүний утас</label>
+                          <input
+                            value={regInvitedBy}
+                            onChange={(e) => setRegInvitedBy(e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="9911XXXX"
+                          />
+                        </div>
+                      </div>
+                      <div className="p-4 bg-indigo-50 rounded-xl flex items-center justify-between border border-indigo-100">
+                        <div className="text-xs text-indigo-600 font-medium italic">Бүртгэлийн хураамж: 5,000₮</div>
+                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm shadow-md active:scale-95 transition-all">
+                          БҮРТГҮҮЛЭХ
+                        </button>
+                      </div>
+                      <p className="text-center text-[10px] text-slate-400">
+                        Бүртгэлтэй бол{' '}
+                        <button type="button" onClick={() => setAuthMode('login')} className="text-indigo-500 font-bold underline">
+                          нэвтэрнэ үү
+                        </button>
+                      </p>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
 
@@ -750,12 +824,20 @@ export default function App() {
                 </div>
                 <h3 className="text-xl font-bold text-slate-800 mb-2">Нэвтрээгүй байна</h3>
                 <p className="text-slate-400 text-sm mb-8">Үйлдэл хийхийн тулд бүртгүүлэх эсвэл нэвтрэх шаардлагатай.</p>
-                <button 
-                  onClick={() => setActiveTab('users')}
-                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-all"
-                >
-                  БҮРТГҮҮЛЭХ
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => { setAuthMode('login'); setActiveTab('users'); }}
+                    className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-all"
+                  >
+                    НЭВТРЭХ
+                  </button>
+                  <button
+                    onClick={() => { setAuthMode('register'); setActiveTab('users'); }}
+                    className="w-full py-4 bg-white text-indigo-600 border-2 border-indigo-100 rounded-2xl font-bold active:scale-95 transition-all"
+                  >
+                    БҮРТГҮҮЛЭХ
+                  </button>
+                </div>
               </div>
             )}
           </div>
