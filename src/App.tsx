@@ -751,7 +751,7 @@ export default function App() {
                     </div>
 
                   {/* Actions — single row */}
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-slate-100 pt-2">
+                  <div className="flex items-center gap-3 overflow-x-auto no-scrollbar border-t border-slate-100 pt-2">
                     {/* Like */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => handleLike(member.id)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}>
@@ -760,9 +760,12 @@ export default function App() {
                       <span className={`text-[11px] font-bold min-w-[12px] ${member.likedBy?.includes(currentUser?.id || '') ? 'text-blue-600' : 'text-slate-500'}`}>{member.likes || 0}</span>
                     </div>
                     {/* Key */}
-                    <button onClick={() => handleActionGuard(() => setKeyModalId(member.id))} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-90 ring-1 ring-amber-100 flex items-center justify-center shrink-0">
-                      <Key className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleActionGuard(() => setKeyModalId(member.id))} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-90 ring-1 ring-amber-100 flex items-center justify-center">
+                        <Key className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[11px] font-bold text-amber-600 min-w-[12px]">{(currentUser?.keys || []).length}</span>
+                    </div>
                     {/* Share */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => handleShare(member)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.sharedBy?.includes(currentUser?.id || '') ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 ring-slate-100'}`}>
