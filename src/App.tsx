@@ -90,6 +90,7 @@ export default function App() {
         sharedBy: m.sharedBy ?? [],
         followers: m.followers ?? [],
         listingPaid: m.listingPaid ?? false,
+        contributions: m.contributions ?? [],
       }));
       setMembers(migrated);
     } else {
@@ -107,13 +108,13 @@ export default function App() {
           superSupports: 10000,
           createdAt: Date.now(),
           expiresAt: Date.now() + 86400000,
-          likedBy: [], sharedBy: [], followers: [], listingPaid: false,
+          likedBy: [], sharedBy: [], followers: [], listingPaid: false, contributions: [],
         },
         {
             id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000,
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
-            likedBy: [], sharedBy: [], followers: [], listingPaid: true,
+            likedBy: [], sharedBy: [], followers: [], listingPaid: true, contributions: [],
           }
       ];
       setMembers(initial);
@@ -231,6 +232,7 @@ export default function App() {
       sharedBy: [],
       followers: [],
       listingPaid: data.listingPaid ?? false,
+      contributions: [],
     };
 
     setMembers([newMember, ...members]);
@@ -361,13 +363,20 @@ export default function App() {
   }, [qpayInvoice]);
 
   const handleSupport = (id: string, amount: number, isSuper: boolean = false) => {
-    setMembers(members.map(m => {
-      if (m.id === id) {
-        return isSuper 
-          ? { ...m, superSupports: m.superSupports + amount }
-          : { ...m, basicSupports: m.basicSupports + amount };
+    setMembers(prev => prev.map(m => {
+      if (m.id !== id) return m;
+      if (!isSuper) return { ...m, basicSupports: m.basicSupports + amount };
+
+      const contributions = [...(m.contributions || [])];
+      if (currentUser) {
+        const idx = contributions.findIndex(c => c.userId === currentUser.id);
+        if (idx >= 0) {
+          contributions[idx] = { ...contributions[idx], amount: contributions[idx].amount + amount };
+        } else {
+          contributions.push({ userId: currentUser.id, amount });
+        }
       }
-      return m;
+      return { ...m, superSupports: m.superSupports + amount, contributions };
     }));
   };
 
@@ -537,11 +546,23 @@ export default function App() {
 
   const calculateAchievement = (member: Member) => {
     return (
-      ((member.likes || 0) * 1) + 
-      ((member.basicSupports || 0) + (member.superSupports || 0)) + 
-      ((member.shares || 0) * 100) + 
+      ((member.likes || 0) * 1) +
+      ((member.basicSupports || 0) + (member.superSupports || 0)) +
+      ((member.shares || 0) * 100) +
       ((member.invites || 0) * 1000)
     );
+  };
+
+  const calculateUserScore = (user: RegisteredUser): number => {
+    let score = 0;
+    members.forEach(m => {
+      if ((m.followers || []).includes(user.id)) score += 1000;
+      if ((m.likedBy || []).includes(user.id)) score += 1;
+      if ((m.sharedBy || []).includes(user.id)) score += 100;
+      const contrib = (m.contributions || []).find(c => c.userId === user.id);
+      if (contrib) score += contrib.amount * 2;
+    });
+    return score;
   };
 
   return (
@@ -737,8 +758,79 @@ export default function App() {
           </AnimatePresence>
         </div>
         ) : activeTab === 'users' ? (
-          <div className="max-w-4xl mx-auto space-y-6 pb-20">
-            {/* Users List */}
+          <div className="max-w-4xl mx-auto space-y-4 pb-20">
+            {/* Login / Register prompt */}
+            {!currentUser && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-indigo-800">Нэвтрэх / Бүртгүүлэх</p>
+                  <p className="text-[10px] text-indigo-400 mt-0.5">Дэмжлэгийн оноо хянах, үйлдэл хийхийн тулд нэвтэрнэ үү</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => { setAuthMode('login'); setActiveTab('profile'); }}
+                    className="px-3 py-1.5 bg-white text-indigo-600 rounded-lg font-bold text-xs border border-indigo-200 hover:bg-indigo-100 transition-all active:scale-95"
+                  >
+                    Нэвтрэх
+                  </button>
+                  <button
+                    onClick={() => { setAuthMode('register'); setActiveTab('profile'); }}
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition-all active:scale-95"
+                  >
+                    Бүртгүүлэх
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Top 3 Ranking */}
+            {registeredUsers.length > 0 && (() => {
+              const MEDAL = [
+                { label: '1', bg: 'bg-yellow-400', cardBg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600' },
+                { label: '2', bg: 'bg-slate-400',  cardBg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-500'  },
+                { label: '3', bg: 'bg-amber-600',  cardBg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700'  },
+              ];
+              const top3 = [...registeredUsers]
+                .map(user => ({ user, score: calculateUserScore(user) }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3);
+              return (
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-yellow-50 to-slate-50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-yellow-500" />
+                      Шилдэг Дэмжигчид
+                    </h3>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Дэмжлэгийн оноо</span>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {top3.map(({ user, score }, idx) => {
+                      const m = MEDAL[idx];
+                      return (
+                        <div key={user.id} className={`px-5 py-3.5 flex items-center gap-3 ${m.cardBg}`}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-xs shrink-0 ${m.bg}`}>
+                            {m.label}
+                          </div>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm uppercase border ${m.border} ${m.text} bg-white shrink-0`}>
+                            {user.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold text-slate-800 leading-none truncate">{user.name}</h4>
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{user.phone}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className={`text-sm font-black ${m.text}`}>{score.toLocaleString()}₮</p>
+                            <p className="text-[8px] text-slate-400 uppercase tracking-wider">оноо</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Full Users List */}
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">

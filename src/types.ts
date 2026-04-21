@@ -16,6 +16,7 @@ export interface Member {
   sharedBy: string[];
   followers: string[];       // RegisteredUser.id array
   listingPaid: boolean;      // true if paid for listing (extra days / infinite)
+  contributions: { userId: string; amount: number }[];
 }
 
 export interface RegisteredUser {
