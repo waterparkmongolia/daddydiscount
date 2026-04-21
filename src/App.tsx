@@ -117,7 +117,9 @@ export default function App() {
   }, [members]);
 
   useEffect(() => {
-    localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+    if (registeredUsers.length > 0) {
+      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+    }
   }, [registeredUsers]);
 
   useEffect(() => {
