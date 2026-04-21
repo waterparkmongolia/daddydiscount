@@ -961,7 +961,7 @@ export default function App() {
               className="relative w-full max-w-md bg-white rounded-2xl p-8 shadow-2xl border border-slate-200"
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-slate-800">Шинэ Хэрэглэгч Нэмэх — New Post</h2>
+                <h2 className="text-xl font-bold text-slate-800">New Post</h2>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
