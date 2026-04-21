@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
 import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react';
-import { Member, RegisteredUser, MembershipTier } from './types';
+import { Member, RegisteredUser, MembershipTier, GoalType } from './types';
 
 const ADMIN_PASSWORD = 'admin2024';
 const SPECIAL_CODE = 'DADDY2024';
@@ -29,6 +29,7 @@ export default function App() {
   const [newPhone, setNewPhone] = useState('');
   const [newGoalName, setNewGoalName] = useState('');
   const [newGoal, setNewGoal] = useState('');
+  const [newGoalType, setNewGoalType] = useState<GoalType>('price');
   const [expiryOption, setExpiryOption] = useState<'24h' | 'special' | 'infinite'>('24h');
   const [specialCodeInput, setSpecialCodeInput] = useState('');
   
@@ -62,6 +63,10 @@ export default function App() {
   const [adminInput, setAdminInput] = useState('');
   const [adminUnlockedId, setAdminUnlockedId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapCountRef = useRef<Record<string, number>>({});
+  const tapTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [likedBurstIds, setLikedBurstIds] = useState<string[]>([]);
+  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState<string>('');
   const [qpayInvoice, setQpayInvoice] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<{
@@ -110,6 +115,7 @@ export default function App() {
         contributions: m.contributions ?? [],
         views: m.views ?? 0,
         viewedBy: m.viewedBy ?? [],
+        goalType: m.goalType ?? 'price',
       }));
       setMembers(migrated);
     } else {
@@ -121,6 +127,7 @@ export default function App() {
           phone: '99110022',
           goal: 1000000,
           goalName: 'Утас авах',
+          goalType: 'price' as GoalType,
           likes: 5,
           shares: 2,
           invites: 0,
@@ -132,6 +139,7 @@ export default function App() {
         },
         {
             id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000, goalName: 'Вэбсайт хийлгэх',
+            goalType: 'price' as GoalType,
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
             likedBy: [], sharedBy: [], followers: [], listingPaid: true, contributions: [], views: 0, viewedBy: [],
@@ -165,9 +173,52 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Cross-device sync via server
+  const syncTimer = useRef<any>(null);
+  const localOnlyMode = useRef(false);
+
+  // Load from server on startup (overrides localStorage if server has data)
+  useEffect(() => {
+    fetch('/api/data/get')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.configured) { localOnlyMode.current = true; return; }
+        if (data.members && data.members.length > 0) setMembers(data.members);
+        if (data.users && data.users.length > 0) setRegisteredUsers(data.users);
+      })
+      .catch(() => { localOnlyMode.current = true; });
+  }, []);
+
+  // Debounced push members to server on change
+  useEffect(() => {
+    if (localOnlyMode.current || members.length === 0) return;
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      fetch('/api/data/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'members', value: members }),
+      }).catch(() => {});
+    }, 1500);
+  }, [members]);
+
+  // Debounced push users to server on change
+  const userSyncTimer = useRef<any>(null);
+  useEffect(() => {
+    if (localOnlyMode.current || registeredUsers.length === 0) return;
+    clearTimeout(userSyncTimer.current);
+    userSyncTimer.current = setTimeout(() => {
+      fetch('/api/data/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'users', value: registeredUsers }),
+      }).catch(() => {});
+    }, 1500);
+  }, [registeredUsers]);
+
   // Real-time countdown — re-renders every second
   useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    const interval = setInterval(() => setTick((t: number) => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -261,6 +312,7 @@ export default function App() {
       phone: newPhone.replace(/\D/g, ''),
       goal: parseInt(newGoal) || 0,
       goalName: newGoalName,
+      goalType: newGoalType,
       createdAt: now,
       expiresAt: expiry,
       listingPaid,
@@ -292,11 +344,12 @@ export default function App() {
       viewedBy: [],
     };
 
-    setMembers([newMember, ...members]);
+    setMembers(prev => [newMember, ...prev]);
     setNewName('');
     setNewPhone('');
     setNewGoalName('');
     setNewGoal('');
+    setNewGoalType('price');
     setExpiryOption('24h');
     setSpecialCodeInput('');
     setIsModalOpen(false);
@@ -380,45 +433,73 @@ export default function App() {
     switch (type) {
       case 'support':
         handleSupport(data.memberId, amount, data.isSuper);
+        setPaymentSuccessMsg(`${amount.toLocaleString()}₮ дэмжлэг амжилттай илгээгдлээ!`);
         break;
       case 'register':
         finalizeRegister(data);
         break;
       case 'add_member':
         finalizeAddMember(data);
+        setPaymentSuccessMsg('Таны пост амжилттай нийтлэгдлээ!');
         break;
       case 'membership':
         finalizeMembership(data.memberId, data.tier);
+        setPaymentSuccessMsg('Гишүүнчлэл амжилттай идэвхжлээ!');
         break;
     }
   };
 
+  // Refs to avoid stale closure in polling interval
+  const qpayInvoiceRef = useRef<any>(null);
+  const paymentTargetRef = useRef<any>(null);
+  useEffect(() => { qpayInvoiceRef.current = qpayInvoice; }, [qpayInvoice]);
+  useEffect(() => { paymentTargetRef.current = paymentTarget; }, [paymentTarget]);
+
+  const [paymentChecking, setPaymentChecking] = useState(false);
+  const [lastCheckDebug, setLastCheckDebug] = useState<string>('');
+
   const checkPaymentStatus = async () => {
-    if (!qpayInvoice || !paymentTarget) return;
+    const invoice = qpayInvoiceRef.current;
+    const target = paymentTargetRef.current;
+    if (!invoice || !target) {
+      setLastCheckDebug(`invoice=${!!invoice} target=${!!target}`);
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/qpay/check-payment/${qpayInvoice.invoice_id}`);
+      setPaymentChecking(true);
+      const invoiceId = invoice.invoice_id;
+      const response = await fetch(`/api/qpay/check-payment/${invoiceId}`);
       const result = await response.json();
-      
-      if (result.rows && result.rows.length > 0 && result.rows[0].payment_status === 'PAID') {
-        processSuccessfulPayment(paymentTarget.type, paymentTarget.amount, paymentTarget.data);
+      setLastCheckDebug(JSON.stringify(result));
+
+      const paid =
+        result.count > 0 ||
+        (Array.isArray(result.rows) &&
+          result.rows.some((r: any) =>
+            ['PAID', 'SUCCESS', 'COMPLETE', 'COMPLETED'].includes(r.payment_status)
+          ));
+
+      if (paid) {
+        processSuccessfulPayment(target.type, target.amount, target.data);
         setQpayInvoice(null);
         setPaymentTarget(null);
         setIsProcessingPayment(false);
+        setLastCheckDebug('');
       }
-    } catch (error) {
-      console.error('Check Payment Error:', error);
+    } catch (error: any) {
+      setLastCheckDebug(`Error: ${error.message}`);
+    } finally {
+      setPaymentChecking(false);
     }
   };
 
-  // Poll for payment
+  // Poll for payment every 3s
   useEffect(() => {
-    let interval: any;
-    if (qpayInvoice) {
-      interval = setInterval(checkPaymentStatus, 3000);
-    }
+    if (!qpayInvoice) return;
+    const interval = setInterval(checkPaymentStatus, 3000);
     return () => clearInterval(interval);
-  }, [qpayInvoice]);
+  }, [qpayInvoice?.invoice_id]);
 
   const handleSupport = (id: string, amount: number, isSuper: boolean = false) => {
     setMembers(prev => prev.map(m => {
@@ -515,7 +596,7 @@ export default function App() {
       setMembers(prev => prev.map(m => m.phone === cleanInvitedBy ? { ...m, invites: (m.invites || 0) + 1 } : m));
     }
 
-    setRegisteredUsers([newUser, ...registeredUsers]);
+    setRegisteredUsers(prev => [newUser, ...prev]);
     setCurrentUser(newUser);
     
     setRegName('');
@@ -524,7 +605,7 @@ export default function App() {
     setRegPassword('');
     setRegConfirmPassword('');
     setInviteId(null);
-    alert("Амжилттай бүртгүүллээ!");
+    setPaymentSuccessMsg('Амжилттай бүртгүүллээ!');
   };
 
   const handleFollow = (id: string) => {
@@ -554,11 +635,21 @@ export default function App() {
     alert(`"${tier.charAt(0).toUpperCase() + tier.slice(1)}" гишүүн боллоо!`);
   };
 
-  const startLongPress = (memberId: string) => {
-    longPressTimer.current = setTimeout(() => setAdminTargetId(memberId), 600);
-  };
   const cancelLongPress = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleDoubleTap = (memberId: string) => {
+    tapCountRef.current[memberId] = (tapCountRef.current[memberId] || 0) + 1;
+    clearTimeout(tapTimerRef.current[memberId]);
+    if (tapCountRef.current[memberId] >= 2) {
+      tapCountRef.current[memberId] = 0;
+      setAdminTargetId(memberId);
+    } else {
+      tapTimerRef.current[memberId] = setTimeout(() => {
+        tapCountRef.current[memberId] = 0;
+      }, 400);
+    }
   };
 
   const handleAdminLogin = (e: FormEvent) => {
@@ -605,6 +696,8 @@ export default function App() {
   };
 
   const calculateAchievement = (member: Member) => {
+    if (member.goalType === 'likes') return member.likes || 0;
+    if (member.goalType === 'shares') return member.shares || 0;
     return (
       ((member.likes || 0) * 1) +
       ((member.basicSupports || 0) + (member.superSupports || 0)) +
@@ -626,21 +719,19 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
+    <div className="min-h-screen max-w-md mx-auto bg-slate-50 font-sans text-slate-900 flex flex-col relative overflow-x-hidden">
       {/* Header Section */}
-      <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tighter text-indigo-600 flex items-center gap-2">
-            <Heart className="w-5 h-5 fill-current" />
-            Daddy Discounter
-          </h1>
-        </div>
+      <header className="bg-white border-b border-slate-200 px-3 py-2.5 flex items-center justify-between gap-3">
+        <h1 className="text-sm font-black tracking-tight text-indigo-600 flex items-center gap-1.5">
+          <Heart className="w-3.5 h-3.5 fill-current" />
+          Daddy Discounter
+        </h1>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-all active:scale-95 shadow-sm text-sm"
+          className="flex items-center gap-1 bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold transition-all active:scale-95 shadow-sm text-[11px]"
         >
-          <Plus className="w-4 h-4" />
-          New Post
+          <Plus className="w-3 h-3" />
+          Пост нэмэх
         </button>
       </header>
 
@@ -678,11 +769,8 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={member.id}
-                    onMouseDown={() => startLongPress(member.id)}
-                    onMouseUp={cancelLongPress}
-                    onMouseLeave={cancelLongPress}
-                    onTouchStart={() => startLongPress(member.id)}
-                    onTouchEnd={cancelLongPress}
+                    onDoubleClick={() => handleDoubleTap(member.id)}
+                    onTouchEnd={() => handleDoubleTap(member.id)}
                     className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm relative overflow-hidden select-none"
                   >
                     {/* Free / Paid badge */}
@@ -748,37 +836,54 @@ export default function App() {
                         const achievement = calculateAchievement(member);
                         const goal = member.goal || 1;
                         const pctGoal = Math.min(100, Math.round((achievement / goal) * 100));
+                        const isLikesGoal = member.goalType === 'likes';
+                        const isSharesGoal = member.goalType === 'shares';
+                        const isPriceGoal = !isLikesGoal && !isSharesGoal;
                         const remaining = Math.max(0, (member.goal || 0) - achievement);
                         return (
                           <div className="-mx-3 px-3 py-2.5 bg-slate-50/50 border-y border-slate-100 space-y-1.5">
                             {/* Goal name + % */}
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[10px] font-bold text-slate-700 truncate">{member.goalName || 'Зорилго'}</span>
-                              <span className="text-[10px] font-black text-emerald-600 shrink-0">{pctGoal}% хэмнэлт</span>
+                              <span className="text-[10px] font-black text-emerald-600 shrink-0">{pctGoal}%{isPriceGoal ? ' хэмнэлт' : ''}</span>
                             </div>
                             {/* Progress bar */}
                             <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${pctGoal}%` }}
-                                className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+                                className={`h-full shadow-[0_0_8px_rgba(16,185,129,0.3)] ${isLikesGoal ? 'bg-blue-500' : isSharesGoal ? 'bg-slate-500' : 'bg-emerald-500'}`}
                               />
                             </div>
-                            {/* Price + Buy button */}
+                            {/* Count / Price + action button */}
                             <div className="flex items-center justify-between pt-0.5">
-                              <div className="flex items-baseline gap-1.5">
-                                <span className="text-[9px] text-slate-400 line-through font-mono">{(member.goal || 0).toLocaleString()}₮</span>
-                                <span className="text-sm font-black text-slate-800">{remaining.toLocaleString()}₮</span>
-                              </div>
-                              <button
-                                onClick={() => handleActionGuard(() => {
-                                  if (remaining <= 0) { alert('Энэ зүйл бүрэн үнэгүй боллоо!'); return; }
-                                  initiatePayment('support', remaining, { memberId: member.id, isSuper: true });
-                                })}
-                                className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-black text-[11px] hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
-                              >
-                                АВАХ
-                              </button>
+                              {isLikesGoal ? (
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-sm font-black text-blue-600">{achievement.toLocaleString()}</span>
+                                  <span className="text-[9px] text-slate-400 font-mono">/ {(member.goal || 0).toLocaleString()} Like</span>
+                                </div>
+                              ) : isSharesGoal ? (
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-sm font-black text-slate-700">{achievement.toLocaleString()}</span>
+                                  <span className="text-[9px] text-slate-400 font-mono">/ {(member.goal || 0).toLocaleString()} Share</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-[9px] text-slate-400 line-through font-mono">{(member.goal || 0).toLocaleString()}₮</span>
+                                  <span className="text-sm font-black text-slate-800">{remaining.toLocaleString()}₮</span>
+                                </div>
+                              )}
+                              {isPriceGoal && (
+                                <button
+                                  onClick={() => handleActionGuard(() => {
+                                    if (remaining <= 0) { alert('Энэ зүйл бүрэн үнэгүй боллоо!'); return; }
+                                    initiatePayment('support', remaining, { memberId: member.id, isSuper: true });
+                                  })}
+                                  className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-black text-[11px] hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                                >
+                                  АВАХ
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -786,51 +891,153 @@ export default function App() {
                     </div>
 
                   {/* Actions — single row */}
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-2">
-                    {/* Like */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleLike(member.id)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}>
-                        <ThumbsUp className={`w-3.5 h-3.5 ${member.likedBy?.includes(currentUser?.id || '') ? 'fill-current' : ''}`} />
-                      </button>
-                      <span className={`text-[11px] font-bold min-w-[12px] ${member.likedBy?.includes(currentUser?.id || '') ? 'text-blue-600' : 'text-slate-500'}`}>{member.likes || 0}</span>
+                  {(() => {
+                    const isLiked = member.likedBy?.includes(currentUser?.id || '');
+                    const isShared = member.sharedBy?.includes(currentUser?.id || '');
+                    const isBursting = likedBurstIds.includes(member.id);
+                    const memberCount = registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length;
+                    return (
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                      {/* Like */}
+                      <div className="flex items-center gap-1 shrink-0 relative">
+                        <motion.button
+                          onClick={() => {
+                            if (!isLiked) {
+                              setLikedBurstIds(ids => [...ids, member.id]);
+                              setTimeout(() => setLikedBurstIds(ids => ids.filter(x => x !== member.id)), 600);
+                            }
+                            handleLike(member.id);
+                          }}
+                          whileTap={{ scale: 0.75 }}
+                          animate={isBursting ? { scale: [1, 1.45, 0.88, 1.12, 1] } : { scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                          className={`p-1 rounded-md flex items-center justify-center ring-1 relative overflow-visible ${isLiked ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 ring-blue-100'}`}
+                        >
+                          <ThumbsUp className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
+                          <AnimatePresence>
+                            {isBursting && (
+                              <motion.span
+                                initial={{ opacity: 1, scale: 0.5, y: 0, x: '-50%' }}
+                                animate={{ opacity: 0, scale: 1, y: -22 }}
+                                exit={{}}
+                                transition={{ duration: 0.5, ease: 'easeOut' }}
+                                className="absolute -top-1 left-1/2 text-[10px] font-black text-blue-500 pointer-events-none select-none"
+                                style={{ transformOrigin: 'center' }}
+                              >+1</motion.span>
+                            )}
+                          </AnimatePresence>
+                        </motion.button>
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={member.likes}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            transition={{ duration: 0.2 }}
+                            className={`text-[11px] font-bold min-w-[12px] ${isLiked ? 'text-blue-600' : 'text-slate-500'}`}
+                          >{member.likes || 0}</motion.span>
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Key */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <motion.button
+                          onClick={() => handleActionGuard(() => setKeyModalId(member.id))}
+                          whileTap={{ rotate: [0, -18, 18, -12, 12, 0], scale: 0.9 }}
+                          transition={{ duration: 0.4 }}
+                          className="p-1 rounded-md bg-amber-50 text-amber-600 ring-1 ring-amber-100 flex items-center justify-center"
+                        >
+                          <Key className="w-3 h-3" />
+                        </motion.button>
+                        <span className="text-[10px] font-bold text-amber-600 min-w-[10px]">{(currentUser?.keys || []).length}</span>
+                      </div>
+
+                      {/* Share */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <motion.button
+                          onClick={() => handleShare(member)}
+                          whileTap={{ scale: 0.78, x: [0, 4, -4, 3, 0] }}
+                          transition={{ type: 'spring', stiffness: 600, damping: 15 }}
+                          className={`p-1 rounded-md flex items-center justify-center ring-1 ${isShared ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 ring-slate-100'}`}
+                        >
+                          <Share2 className="w-3 h-3" />
+                        </motion.button>
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={member.shares}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            transition={{ duration: 0.2 }}
+                            className={`text-[11px] font-bold min-w-[12px] ${isShared ? 'text-slate-600' : 'text-slate-400'}`}
+                          >{member.shares || 0}</motion.span>
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="w-px h-4 bg-slate-200 shrink-0" />
+
+                      {/* Invite */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }}
+                          onMouseDown={e => e.stopPropagation()}
+                          whileTap={{ scale: 0.78 }}
+                          whileHover={{ scale: 1.08 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                          className="p-1 rounded-md bg-indigo-50 text-indigo-500 ring-1 ring-indigo-100 flex items-center justify-center"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                        </motion.button>
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={member.invites}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            transition={{ duration: 0.2 }}
+                            className="text-[11px] font-bold text-slate-400 min-w-[12px]"
+                          >{member.invites || 0}</motion.span>
+                        </AnimatePresence>
+                      </div>
+
+                      {/* ₮ */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <motion.button
+                          onClick={() => setSuperSupportId(member.id)}
+                          whileTap={{ scale: 1.25, backgroundColor: '#059669' }}
+                          transition={{ type: 'spring', stiffness: 600, damping: 12 }}
+                          className="p-1 rounded-md bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 flex items-center justify-center font-black"
+                        >
+                          <span className="text-xs leading-none">₮</span>
+                        </motion.button>
+                        <span className="text-[10px] font-bold text-emerald-600 min-w-[16px]">{formatSupport(member.superSupports)}</span>
+                      </div>
+
+                      {/* Membership / Crown */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <motion.button
+                          onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))}
+                          whileTap={{ scale: 0.78, rotate: -12 }}
+                          whileHover={{ scale: 1.08, rotate: 5 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                          className={`p-1 rounded-md flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 ring-slate-100'}`}
+                        >
+                          <Crown className="w-3 h-3" />
+                        </motion.button>
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={memberCount}
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            transition={{ duration: 0.2 }}
+                            className="text-[11px] font-bold text-slate-400 min-w-[12px]"
+                          >{memberCount}</motion.span>
+                        </AnimatePresence>
+                      </div>
                     </div>
-                    {/* Key */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleActionGuard(() => setKeyModalId(member.id))} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-90 ring-1 ring-amber-100 flex items-center justify-center">
-                        <Key className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[11px] font-bold text-amber-600 min-w-[12px]">{(currentUser?.keys || []).length}</span>
-                    </div>
-                    {/* Share */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleShare(member)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.sharedBy?.includes(currentUser?.id || '') ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 ring-slate-100'}`}>
-                        <Share2 className="w-3.5 h-3.5" />
-                      </button>
-                      <span className={`text-[11px] font-bold min-w-[12px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
-                    </div>
-                    <div className="w-px h-4 bg-slate-200 shrink-0" />
-                    {/* Invite */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }} onMouseDown={e => e.stopPropagation()} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all active:scale-90 ring-1 ring-indigo-100 flex items-center justify-center">
-                        <UserPlus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{member.invites || 0}</span>
-                    </div>
-                    {/* ₮ */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => setSuperSupportId(member.id)} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-all active:scale-95 font-black ring-1 ring-emerald-100 flex items-center justify-center">
-                        <span className="text-base leading-none">₮</span>
-                      </button>
-                      <span className="text-[11px] font-bold text-emerald-600 min-w-[20px]">{formatSupport(member.superSupports)}</span>
-                    </div>
-                    {/* Membership */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}>
-                        <Crown className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length}</span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </motion.div>
                 );})
             ) : (
@@ -1180,34 +1387,23 @@ export default function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 pb-8 md:pb-3 flex items-center justify-around z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <button 
-          onClick={() => setActiveTab('posts')}
-          className={`group flex flex-col items-center gap-1 transition-all ${activeTab === 'posts' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          <div className={`p-1 rounded-xl transition-all ${activeTab === 'posts' ? 'bg-indigo-50' : 'bg-transparent'}`}>
-            <LayoutGrid className="w-5 h-5" />
-          </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${activeTab === 'posts' ? 'opacity-100' : 'opacity-40'}`}>Самбар</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('users')}
-          className={`group flex flex-col items-center gap-1 transition-all ${activeTab === 'users' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-           <div className={`p-1 rounded-xl transition-all ${activeTab === 'users' ? 'bg-indigo-50' : 'bg-transparent'}`}>
-            <UsersIcon className="w-5 h-5" />
-          </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${activeTab === 'users' ? 'opacity-100' : 'opacity-40'}`}>Хэрэглэгчид</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('profile')}
-          className={`group flex flex-col items-center gap-1 transition-all ${activeTab === 'profile' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-           <div className={`p-1 rounded-xl transition-all ${activeTab === 'profile' ? 'bg-indigo-50' : 'bg-transparent'}`}>
-            <User className="w-5 h-5" />
-          </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${activeTab === 'profile' ? 'opacity-100' : 'opacity-40'}`}>Profile</span>
-        </button>
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-slate-200 px-4 py-2 pb-6 flex items-center justify-around z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {([
+          { tab: 'posts', icon: LayoutGrid, label: 'Самбар' },
+          { tab: 'users', icon: UsersIcon, label: 'Хэрэглэгч' },
+          { tab: 'profile', icon: User, label: 'Профайл' },
+        ] as const).map(({ tab, icon: Icon, label }) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex flex-col items-center gap-0.5 transition-all ${activeTab === tab ? 'text-indigo-600' : 'text-slate-400'}`}
+          >
+            <div className={`p-1 rounded-lg transition-all ${activeTab === tab ? 'bg-indigo-50' : ''}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <span className={`text-[8px] font-bold ${activeTab === tab ? 'opacity-100' : 'opacity-50'}`}>{label}</span>
+          </button>
+        ))}
       </nav>
 
       {/* Footer */}
@@ -1257,13 +1453,44 @@ export default function App() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилго Нэр</label>
                   <input required type="text" value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
-                    placeholder="Утас авах, Вэбсайт хийлгэх..." />
+                    placeholder="Утас авах, Аялал гэх мэт..." />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилго Үнэ (₮)</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилгын Төрөл</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([
+                      { value: 'price', label: '₮ Үнэ', color: 'indigo' },
+                      { value: 'likes', label: '👍 Like', color: 'blue' },
+                      { value: 'shares', label: '🔗 Share', color: 'slate' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewGoalType(opt.value)}
+                        className={`py-2 rounded-lg text-[11px] font-bold border transition-all ${newGoalType === opt.value
+                          ? opt.value === 'price' ? 'bg-indigo-600 text-white border-indigo-600'
+                            : opt.value === 'likes' ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-slate-600 text-white border-slate-600'
+                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">
+                    {newGoalType === 'likes' ? 'Like Зорилго' : newGoalType === 'shares' ? 'Share Зорилго' : 'Зорилго Үнэ (₮)'}
+                  </label>
                   <input required type="number" value={newGoal} onChange={(e) => setNewGoal(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
-                    placeholder="20,000,000" />
+                    placeholder={newGoalType === 'likes' ? '100,000' : newGoalType === 'shares' ? '90,000' : '20,000,000'} />
+                  {newGoalType === 'likes' && (
+                    <p className="text-[9px] text-blue-500 ml-1">100,000 Like хүрвэл аялалд гарна</p>
+                  )}
+                  {newGoalType === 'shares' && (
+                    <p className="text-[9px] text-slate-500 ml-1">90,000 Share хүрвэл аялалд гарна</p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -1468,47 +1695,49 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSuperSupportId(null)}
-              className="absolute inset-0 bg-amber-900/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-emerald-900/40 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-2xl p-8 shadow-2xl border-4 border-amber-100"
+              className="relative w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border-2 border-emerald-100"
             >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-amber-800 flex items-center gap-2">
-                    <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
-                    Super Support
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
+                  <span className="text-xl">₮</span>
+                  Мөнгөн дэмжлэг
                 </h2>
-                <button onClick={() => setSuperSupportId(null)} className="p-2 hover:bg-amber-50 rounded-lg">
-                  <X className="w-5 h-5 text-amber-400" />
+                <button onClick={() => setSuperSupportId(null)} className="p-1.5 hover:bg-emerald-50 rounded-lg">
+                  <X className="w-4 h-4 text-emerald-400" />
                 </button>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="relative">
-                   <input
+                  <input
                     autoFocus
                     type="number"
                     value={superAmount}
                     onChange={(e) => setSuperAmount(e.target.value)}
-                    className="w-full px-4 py-6 text-4xl font-extralight bg-amber-50 border border-amber-100 rounded-xl text-center focus:ring-2 focus:ring-amber-500 outline-none transition-all text-amber-900"
+                    className="w-full px-4 py-5 text-3xl font-light bg-emerald-50 border border-emerald-100 rounded-xl text-center focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-emerald-900"
                     placeholder="0"
                   />
-                  <span className="absolute right-4 bottom-2 text-amber-400 font-bold text-2xl group-focus-within:text-amber-600 transition-colors">₮</span>
+                  <span className="absolute right-4 bottom-2 text-emerald-400 font-bold text-xl">₮</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[5000, 10000, 50000].map(val => (
-                    <button
+                <div className="grid grid-cols-4 gap-2">
+                  {[1000, 5000, 10000, 20000].map(val => (
+                    <motion.button
                       key={val}
+                      whileTap={{ scale: 0.92 }}
                       onClick={() => setSuperAmount(val.toString())}
-                      className="py-2 text-[10px] border border-amber-100 bg-amber-50 hover:bg-amber-600 hover:text-white rounded-lg font-bold transition-all uppercase tracking-tighter"
+                      className={`py-2 text-[11px] border rounded-xl font-bold transition-all ${superAmount === val.toString() ? 'bg-emerald-600 text-white border-emerald-600' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
                     >
-                      {val.toLocaleString()}₮
-                    </button>
+                      {val >= 1000 ? `${val/1000}K` : val}₮
+                    </motion.button>
                   ))}
                 </div>
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
                   onClick={() => {
                     if (superAmount && superSupportId) {
                       initiatePayment('support', parseInt(superAmount), { memberId: superSupportId, isSuper: true });
@@ -1516,10 +1745,10 @@ export default function App() {
                       setSuperSupportId(null);
                     }
                   }}
-                  className="w-full py-3 bg-amber-600 text-white rounded-lg font-bold hover:bg-amber-700 transition-all shadow-lg shadow-amber-200 active:scale-95"
+                  className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
                 >
                   ДЭМЖИХ
-                </button>
+                </motion.button>
               </div>
             </motion.div>
           </div>
@@ -1709,71 +1938,192 @@ export default function App() {
         })()}
       </AnimatePresence>
 
-      {/* QPay Payment Modal */}
+      {/* QPay Payment Modal — full screen */}
       <AnimatePresence>
-        {qpayInvoice && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-blue-900/60 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 40 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 40 }}
-              className="relative w-full max-w-[280px] bg-white rounded-2xl overflow-hidden shadow-2xl"
-            >
-              <div className="bg-blue-600 p-4 text-white text-center">
-                <div className="w-10 h-10 bg-white rounded-xl mx-auto flex items-center justify-center mb-2 shadow-lg">
-                    <span className="text-xl font-black text-blue-600 italic">q</span>
+        {(isProcessingPayment || qpayInvoice) && (
+          <motion.div
+            initial={{ opacity: 0, y: 60 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 60 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            className="fixed inset-0 z-[60] flex flex-col bg-white"
+          >
+            {/* Header */}
+            <div className="bg-blue-600 pt-0 px-5 pb-5 text-white flex-shrink-0">
+              <div className="flex items-center justify-between mb-4 pt-3">
+                <button
+                  onClick={() => { setQpayInvoice(null); setPaymentTarget(null); setIsProcessingPayment(false); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow">
+                    <span className="text-sm font-black text-blue-600 italic leading-none">q</span>
+                  </div>
+                  <span className="text-base font-bold">QPay</span>
                 </div>
-                <h3 className="text-lg font-bold">QPay Төлбөр</h3>
-                <p className="text-blue-100 text-xs">{paymentTarget?.amount.toLocaleString()}₮ төлөх</p>
+                <div className="w-8" />
               </div>
-              
-              <div className="p-4 flex flex-col items-center">
-                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 mb-4">
-                    {/* QPay usually provides a QR image source in data.qr_image */}
-                    <img 
-                      src={`data:image/png;base64,${qpayInvoice.qr_image}`} 
-                      alt="QPay QR" 
-                      className="w-32 h-32"
+              <div className="text-center">
+                <p className="text-blue-200 text-xs mb-0.5">Төлөх дүн</p>
+                <p className="text-3xl font-black tabular-nums">{paymentTarget?.amount.toLocaleString()}₮</p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+              {!qpayInvoice ? (
+                /* Loading state — shown immediately */
+                <div className="flex flex-col items-center justify-center h-full gap-5 px-6">
+                  <div className="relative w-20 h-20">
+                    <svg className="w-full h-full animate-spin" viewBox="0 0 80 80">
+                      <circle cx="40" cy="40" r="34" fill="none" stroke="#dbeafe" strokeWidth="6" />
+                      <circle cx="40" cy="40" r="34" fill="none" stroke="#2563eb" strokeWidth="6"
+                        strokeLinecap="round" strokeDasharray="214" strokeDashoffset="160" />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xl font-black text-blue-600 italic">q</span>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-base font-bold text-slate-700">Нэхэмжлэл үүсгэж байна...</p>
+                    <p className="text-xs text-slate-400 mt-1">Түр хүлээнэ үү</p>
+                  </div>
+                </div>
+              ) : (
+                /* Invoice ready */
+                <div className="flex flex-col items-center px-5 py-6 gap-5">
+                  {/* QR code */}
+                  <div className="bg-white rounded-2xl p-4 shadow-[0_0_0_1px_#e2e8f0,0_8px_24px_rgba(0,0,0,0.08)]">
+                    <img
+                      src={`data:image/png;base64,${qpayInvoice.qr_image}`}
+                      alt="QPay QR"
+                      className="w-52 h-52"
                       referrerPolicy="no-referrer"
                     />
-                </div>
-                
-                <p className="text-[9px] text-slate-400 text-center mb-4 px-2">
-                    QR уншуулж эсвэл банкны апп сонгоно уу.
-                </p>
+                  </div>
+                  <p className="text-xs text-slate-500 text-center leading-relaxed">
+                    QR кодыг уншуулах эсвэл доорх банкны аппыг сонгоно уу
+                  </p>
 
-                <div className="grid grid-cols-2 gap-2 w-full max-h-[160px] overflow-y-auto no-scrollbar pr-1">
-                    {qpayInvoice.urls?.map((bank: any) => (
-                        <div
+                  {/* Bank app grid */}
+                  {qpayInvoice.urls?.length > 0 && (
+                    <div className="w-full">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">Банкны апп сонгох</p>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {qpayInvoice.urls.map((bank: any) => (
+                          <button
                             key={bank.name}
                             onClick={() => window.open(bank.link, '_blank')}
-                            className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg hover:bg-blue-50 transition-colors border border-slate-100 cursor-pointer group"
-                        >
-                            <img src={bank.logo} alt={bank.description} className="w-6 h-6 rounded-md shadow-sm group-hover:scale-110 transition-transform" referrerPolicy="no-referrer" />
-                            <span className="text-[9px] font-bold text-slate-600 truncate">{bank.description}</span>
-                        </div>
-                    ))}
+                            className="flex flex-col items-center gap-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100 active:scale-95 active:bg-blue-50 transition-all"
+                          >
+                            <img src={bank.logo} alt={bank.description} className="w-9 h-9 rounded-xl shadow-sm" referrerPolicy="no-referrer" />
+                            <span className="text-[9px] font-bold text-slate-600 text-center leading-tight line-clamp-2">{bank.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Polling indicator + manual check */}
+                  <div className="flex flex-col items-center gap-3 pt-1 w-full">
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Автоматаар шалгаж байна...
+                    </div>
+                    {lastCheckDebug ? (
+                      <div className="w-full bg-slate-100 rounded-lg p-2 text-[9px] font-mono text-slate-500 break-all">
+                        {lastCheckDebug}
+                      </div>
+                    ) : null}
+                    <motion.button
+                      onClick={checkPaymentStatus}
+                      disabled={paymentChecking}
+                      whileTap={{ scale: 0.95 }}
+                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {paymentChecking ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
+                            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                          </svg>
+                          Шалгаж байна...
+                        </>
+                      ) : '✓ Би төлсөн — шалгах'}
+                    </motion.button>
+                  </div>
                 </div>
-              </div>
-              
-              <button 
-                onClick={() => {
-                    setQpayInvoice(null);
-                    setPaymentTarget(null);
-                    setIsProcessingPayment(false);
-                }}
-                className="w-full py-3 bg-slate-50 text-slate-400 text-xs font-bold hover:bg-slate-100 transition-colors border-t border-slate-100"
+              )}
+            </div>
+
+            {/* Footer cancel */}
+            <div className="flex-shrink-0 border-t border-slate-100">
+              <button
+                onClick={() => { setQpayInvoice(null); setPaymentTarget(null); setIsProcessingPayment(false); }}
+                className="w-full py-4 text-slate-400 text-sm font-bold active:bg-slate-50 transition-colors"
               >
                 БОЛИХ
               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Payment / Register Success full-screen */}
+      <AnimatePresence>
+        {paymentSuccessMsg && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+            className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-white"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: [0, 1.3, 1] }}
+              transition={{ delay: 0.1, duration: 0.5, ease: 'easeOut' }}
+              className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mb-6"
+            >
+              <svg className="w-12 h-12 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <motion.path
+                  strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"
+                  initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+                  transition={{ delay: 0.3, duration: 0.4 }}
+                />
+              </svg>
             </motion.div>
-          </div>
+            <motion.h2
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="text-2xl font-black text-slate-800 text-center px-8"
+            >
+              Амжилттай!
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="text-slate-500 text-sm text-center mt-2 px-10"
+            >
+              {paymentSuccessMsg}
+            </motion.p>
+            <motion.button
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setPaymentSuccessMsg('')}
+              className="mt-10 px-10 py-3.5 bg-emerald-500 text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-200 active:bg-emerald-600"
+            >
+              Үргэлжлүүлэх
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

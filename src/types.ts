@@ -1,4 +1,5 @@
 export type MembershipTier = 'bronze' | 'silver' | 'gold' | 'diamond' | 'vip';
+export type GoalType = 'price' | 'likes' | 'shares';
 
 export interface Member {
   id: string;
@@ -6,6 +7,7 @@ export interface Member {
   phone: string;
   goal: number;
   goalName: string;
+  goalType: GoalType;
   likes: number;
   shares: number;
   invites: number;
