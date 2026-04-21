@@ -25,6 +25,9 @@ export default function App() {
   const [regInvitedBy, setRegInvitedBy] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('register');
   const [loginPhone, setLoginPhone] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
 
   const [superSupportId, setSuperSupportId] = useState<string | null>(null);
   const [inviteId, setInviteId] = useState<string | null>(null);
@@ -375,10 +378,25 @@ export default function App() {
   const handleRegister = (e: FormEvent) => {
     e.preventDefault();
     if (!regPhone || !regName) return;
+    if (regPassword.length < 6) {
+      alert('Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой.');
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      alert('Нууц үг таарахгүй байна. Дахин оруулна уу.');
+      return;
+    }
+    const alreadyExists = registeredUsers.some(u => u.phone.replace(/\D/g, '') === regPhone.replace(/\D/g, ''));
+    if (alreadyExists) {
+      alert('Энэ дугаар бүртгэлтэй байна. Нэвтэрнэ үү.');
+      setAuthMode('login');
+      return;
+    }
 
     const data = {
       name: regName,
       phone: regPhone,
+      password: regPassword,
       invitedBy: regInvitedBy,
       inviteId: inviteId
     };
@@ -400,6 +418,7 @@ export default function App() {
       id: crypto.randomUUID(),
       name: data.name,
       phone: cleanPhone,
+      password: data.password || '',
       invitedByPhone: cleanInvitedBy || null,
       createdAt: Date.now(),
     };
@@ -415,6 +434,8 @@ export default function App() {
     setRegName('');
     setRegPhone('');
     setRegInvitedBy('');
+    setRegPassword('');
+    setRegConfirmPassword('');
     setInviteId(null);
     alert("Амжилттай бүртгүүллээ!");
   };
@@ -428,14 +449,19 @@ export default function App() {
     e.preventDefault();
     const clean = loginPhone.replace(/\D/g, '');
     const found = registeredUsers.find(u => u.phone === clean);
-    if (found) {
-      setCurrentUser(found);
-      setLoginPhone('');
-      setActiveTab('profile');
-    } else {
+    if (!found) {
       alert('Энэ дугаараар бүртгэл олдсонгүй. Эхлээд бүртгүүлнэ үү.');
       setAuthMode('register');
+      return;
     }
+    if (found.password && found.password !== loginPassword) {
+      alert('Нууц үг буруу байна.');
+      return;
+    }
+    setCurrentUser(found);
+    setLoginPhone('');
+    setLoginPassword('');
+    setActiveTab('profile');
   };
 
   const formatSupport = (amount: number) => {
@@ -470,7 +496,7 @@ export default function App() {
           className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-all active:scale-95 shadow-sm text-sm"
         >
           <Plus className="w-4 h-4" />
-          Нэмэх
+          New Post
         </button>
       </header>
 
@@ -664,6 +690,17 @@ export default function App() {
                           placeholder="9999XXXX"
                         />
                       </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нууц үг</label>
+                        <input
+                          required
+                          type="password"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                          placeholder="••••••"
+                        />
+                      </div>
                       <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all">
                         НЭВТРЭХ
                       </button>
@@ -712,6 +749,30 @@ export default function App() {
                             onChange={(e) => setRegInvitedBy(e.target.value)}
                             className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             placeholder="9911XXXX"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нууц үг</label>
+                          <input
+                            required
+                            type="password"
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="••••••"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нууц үг давтах</label>
+                          <input
+                            required
+                            type="password"
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            className={`w-full px-4 py-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${regConfirmPassword && regPassword !== regConfirmPassword ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
+                            placeholder="••••••"
                           />
                         </div>
                       </div>
@@ -900,7 +961,7 @@ export default function App() {
               className="relative w-full max-w-md bg-white rounded-2xl p-8 shadow-2xl border border-slate-200"
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-slate-800">Шинэ хэрэглэгч нэмэх</h2>
+                <h2 className="text-xl font-bold text-slate-800">Шинэ Хэрэглэгч Нэмэх — New Post</h2>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
@@ -1089,6 +1150,30 @@ export default function App() {
                             className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-slate-500 font-bold"
                             placeholder="9911-XXXX"
                         />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Нууц үг</label>
+                            <input
+                                required
+                                type="password"
+                                value={regPassword}
+                                onChange={(e) => setRegPassword(e.target.value)}
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                placeholder="••••••"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Нууц үг давтах</label>
+                            <input
+                                required
+                                type="password"
+                                value={regConfirmPassword}
+                                onChange={(e) => setRegConfirmPassword(e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm ${regConfirmPassword && regPassword !== regConfirmPassword ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
+                                placeholder="••••••"
+                            />
+                        </div>
                     </div>
                     <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between">
                         <div className="flex flex-col">

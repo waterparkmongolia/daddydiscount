@@ -18,6 +18,7 @@ export interface RegisteredUser {
   id: string;
   name: string;
   phone: string;
+  password: string;
   invitedByPhone: string;
   createdAt: number;
 }
