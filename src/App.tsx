@@ -720,9 +720,6 @@ export default function App() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-slate-800 text-sm leading-none truncate">{member.name}</h3>
-                          {member.goalName && (
-                            <p className="text-indigo-600 text-[10px] font-bold mt-0.5 truncate">{member.goalName}</p>
-                          )}
                           <p className="text-slate-400 text-[9px] mt-1 flex items-center gap-1.5">
                             <UserCheck className="w-2.5 h-2.5" />
                             {(member.followers || []).length} дагагч
@@ -747,24 +744,45 @@ export default function App() {
                         </button>
                       </div>
                       
-                      <div className="-mx-3 px-3 py-2.5 bg-slate-50/50 border-y border-slate-100 space-y-1.5">
-                        <div className="flex justify-between items-center text-[10px] gap-2">
-                          <span className="text-slate-400 font-bold uppercase tracking-wider shrink-0">Биелэлт явц</span>
-                          <span className="font-bold text-emerald-600 shrink-0">
-                            {Math.min(100, Math.round((calculateAchievement(member) / (member.goal || 1)) * 100))}%
-                          </span>
-                          <span className="text-slate-300 shrink-0">–</span>
-                          <span className="text-slate-400 font-bold uppercase tracking-wider shrink-0">Зорилго</span>
-                          <span className="font-bold text-slate-600 truncate">{(member.goal || 0).toLocaleString()}₮</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
-                            <motion.div
+                      {(() => {
+                        const achievement = calculateAchievement(member);
+                        const goal = member.goal || 1;
+                        const pctGoal = Math.min(100, Math.round((achievement / goal) * 100));
+                        const remaining = Math.max(0, (member.goal || 0) - achievement);
+                        return (
+                          <div className="-mx-3 px-3 py-2.5 bg-slate-50/50 border-y border-slate-100 space-y-1.5">
+                            {/* Goal name + % */}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-slate-700 truncate">{member.goalName || 'Зорилго'}</span>
+                              <span className="text-[10px] font-black text-emerald-600 shrink-0">{pctGoal}% хэмнэлт</span>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="w-full h-1.5 bg-slate-200/50 rounded-full overflow-hidden">
+                              <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(100, (calculateAchievement(member) / (member.goal || 1)) * 100)}%` }}
+                                animate={{ width: `${pctGoal}%` }}
                                 className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
-                            />
-                        </div>
-                      </div>
+                              />
+                            </div>
+                            {/* Price + Buy button */}
+                            <div className="flex items-center justify-between pt-0.5">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-[9px] text-slate-400 line-through font-mono">{(member.goal || 0).toLocaleString()}₮</span>
+                                <span className="text-sm font-black text-slate-800">{remaining.toLocaleString()}₮</span>
+                              </div>
+                              <button
+                                onClick={() => handleActionGuard(() => {
+                                  if (remaining <= 0) { alert('Энэ зүйл бүрэн үнэгүй боллоо!'); return; }
+                                  initiatePayment('support', remaining, { memberId: member.id, isSuper: true });
+                                })}
+                                className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-black text-[11px] hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                              >
+                                АВАХ
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                   {/* Actions — single row */}
