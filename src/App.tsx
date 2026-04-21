@@ -1414,54 +1414,61 @@ export default function App() {
       {/* Add Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-2xl p-8 shadow-2xl border border-slate-200"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-slate-800">New Post</h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col bg-slate-50"
+          >
+            {/* Full-screen header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 shrink-0">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4 text-white" />
+                <h2 className="text-sm font-bold text-white">Пост нэмэх</h2>
               </div>
-              <form onSubmit={handleAddMember} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Нэр</label>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 rounded-lg bg-white/10 active:bg-white/20 transition-colors"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+
+            {/* Scrollable form body */}
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={handleAddMember} className="p-4 space-y-3 pb-6">
+                {/* Name + Phone */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Нэр</label>
                     <input required type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
                       placeholder="Бат-Эрдэнэ" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Дугаар</label>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Дугаар</label>
                     <input required type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
                       placeholder="9911-XXXX" />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилго Нэр</label>
+
+                {/* Goal name */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Зорилго</label>
                   <input required type="text" value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
                     placeholder="Утас авах, Аялал гэх мэт..." />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилгын Төрөл</label>
+
+                {/* Goal type selector */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Зорилгын Төрөл</label>
                   <div className="grid grid-cols-3 gap-1.5">
                     {([
-                      { value: 'price', label: '₮ Үнэ', color: 'indigo' },
-                      { value: 'likes', label: '👍 Like', color: 'blue' },
-                      { value: 'shares', label: '🔗 Share', color: 'slate' },
+                      { value: 'price', label: '₮ Үнэ' },
+                      { value: 'likes', label: '👍 Like' },
+                      { value: 'shares', label: '🔗 Share' },
                     ] as const).map(opt => (
                       <button
                         key={opt.value}
@@ -1471,63 +1478,62 @@ export default function App() {
                           ? opt.value === 'price' ? 'bg-indigo-600 text-white border-indigo-600'
                             : opt.value === 'likes' ? 'bg-blue-600 text-white border-blue-600'
                             : 'bg-slate-600 text-white border-slate-600'
-                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
+                          : 'bg-white text-slate-500 border-slate-200'}`}
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">
+
+                {/* Goal amount */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">
                     {newGoalType === 'likes' ? 'Like Зорилго' : newGoalType === 'shares' ? 'Share Зорилго' : 'Зорилго Үнэ (₮)'}
                   </label>
                   <input required type="number" value={newGoal} onChange={(e) => setNewGoal(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
-                    placeholder={newGoalType === 'likes' ? '100,000' : newGoalType === 'shares' ? '90,000' : '20,000,000'} />
-                  {newGoalType === 'likes' && (
-                    <p className="text-[9px] text-blue-500 ml-1">100,000 Like хүрвэл аялалд гарна</p>
-                  )}
-                  {newGoalType === 'shares' && (
-                    <p className="text-[9px] text-slate-500 ml-1">90,000 Share хүрвэл аялалд гарна</p>
-                  )}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 bg-white"
+                    placeholder={newGoalType === 'likes' ? '100000' : newGoalType === 'shares' ? '90000' : '20000000'} />
+                  {newGoalType === 'likes' && <p className="text-[9px] text-blue-500 ml-0.5">100,000 Like хүрвэл аялалд гарна</p>}
+                  {newGoalType === 'shares' && <p className="text-[9px] text-slate-500 ml-0.5">90,000 Share хүрвэл аялалд гарна</p>}
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Хугацаа Сонгох</label>
-                  <div className="grid grid-cols-1 gap-2">
+                {/* Duration */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400 ml-0.5">Хугацаа</label>
+                  <div className="space-y-1.5">
                     {/* 24h */}
                     <button type="button" onClick={() => setExpiryOption('24h')}
-                      className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === '24h' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === '24h' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
-                          <Clock className="w-4 h-4" />
+                      className={`w-full flex items-center justify-between px-3 py-2.5 border rounded-xl transition-all ${expiryOption === '24h' ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200' : 'bg-white border-slate-200'}`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${expiryOption === '24h' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                          <Clock className="w-3.5 h-3.5" />
                         </div>
                         <div className="text-left">
                           <p className="text-xs font-bold text-slate-700">24 Цаг</p>
                           <p className="text-[9px] text-slate-400">Үнэгүй байршина</p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-black text-emerald-500 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100 uppercase">Үнэгүй</span>
+                      <span className="text-[9px] font-black text-emerald-600 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">ҮНЭГҮЙ</span>
                     </button>
 
                     {/* Special code */}
-                    <div className={`border rounded-xl transition-all ${expiryOption === 'special' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                    <div className={`border rounded-xl transition-all ${expiryOption === 'special' ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200' : 'bg-white border-slate-200'}`}>
                       <button type="button" onClick={() => setExpiryOption('special')}
-                        className="w-full flex items-center justify-between px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'special' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                            <Key className="w-4 h-4" />
+                        className="w-full flex items-center justify-between px-3 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'special' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                            <Key className="w-3.5 h-3.5" />
                           </div>
                           <div className="text-left">
                             <p className="text-xs font-bold text-slate-700">Тусгай код</p>
                             <p className="text-[9px] text-slate-400">Хугацаагүй, үнэгүй</p>
                           </div>
                         </div>
-                        <span className="text-[10px] font-black text-indigo-500 px-2 py-1 bg-indigo-100 rounded-full uppercase">Код</span>
+                        <span className="text-[9px] font-black text-indigo-600 px-2 py-0.5 bg-indigo-100 rounded-full">КОД</span>
                       </button>
                       {expiryOption === 'special' && (
-                        <div className="px-4 pb-3" onClick={e => e.stopPropagation()}>
+                        <div className="px-3 pb-3" onClick={e => e.stopPropagation()}>
                           <input
                             type="text"
                             value={specialCodeInput}
@@ -1535,49 +1541,47 @@ export default function App() {
                             className={`w-full px-3 py-2 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-400 tracking-widest uppercase ${specialCodeInput && specialCodeInput !== SPECIAL_CODE ? 'border-red-300 bg-red-50 text-red-600' : specialCodeInput === SPECIAL_CODE ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white'}`}
                             placeholder="XXXXXXXX"
                           />
-                          {specialCodeInput === SPECIAL_CODE && (
-                            <p className="text-[10px] text-emerald-600 font-bold mt-1 ml-1">✓ Зөв код — үнэгүй, хугацаагүй байршина</p>
-                          )}
-                          {specialCodeInput && specialCodeInput !== SPECIAL_CODE && (
-                            <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">Код буруу байна</p>
-                          )}
+                          {specialCodeInput === SPECIAL_CODE && <p className="text-[9px] text-emerald-600 font-bold mt-1 ml-0.5">✓ Зөв код</p>}
+                          {specialCodeInput && specialCodeInput !== SPECIAL_CODE && <p className="text-[9px] text-red-500 font-bold mt-1 ml-0.5">Код буруу</p>}
                         </div>
                       )}
                     </div>
 
                     {/* Infinite paid */}
                     <button type="button" onClick={() => setExpiryOption('infinite')}
-                      className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === 'infinite' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'infinite' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
-                          <AlertCircle className="w-4 h-4" />
+                      className={`w-full flex items-center justify-between px-3 py-2.5 border rounded-xl transition-all ${expiryOption === 'infinite' ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200' : 'bg-white border-slate-200'}`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'infinite' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                          <AlertCircle className="w-3.5 h-3.5" />
                         </div>
                         <div className="text-left">
                           <p className="text-xs font-bold text-slate-700">Хугацаагүй</p>
                           <p className="text-[9px] text-slate-400">Биелэх хүртэл</p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-black text-emerald-500 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100 uppercase tracking-tighter">
+                      <span className="text-[9px] font-black text-emerald-600 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
                         {newGoal ? (parseInt(newGoal) * 0.5).toLocaleString() : '...'}₮
                       </span>
                     </button>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нийт төлбөр</span>
-                    <span className="text-lg font-black text-slate-800 ml-1">
+
+                {/* Submit bar */}
+                <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-200">
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Нийт төлбөр</p>
+                    <p className="text-base font-black text-slate-800">
                       {(expiryOption === '24h' || expiryOption === 'special' ? 0 : (parseInt(newGoal || '0') * 0.5)).toLocaleString()}₮
-                    </span>
+                    </p>
                   </div>
                   <button type="submit"
-                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95">
+                    className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200">
                     БАТЛАХ
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
