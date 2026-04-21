@@ -750,52 +750,47 @@ export default function App() {
                       </div>
                     </div>
 
-                  {/* Actions: Үнэгүй / Paid */}
-                  <div className="space-y-1.5 border-t border-slate-100 pt-2">
-                    {/* Үнэгүй row */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[7px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 shrink-0 leading-none py-1">Үнэгүй</span>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleLike(member.id)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}>
-                            <ThumbsUp className={`w-3.5 h-3.5 ${member.likedBy?.includes(currentUser?.id || '') ? 'fill-current' : ''}`} />
-                          </button>
-                          <span className={`text-[11px] font-bold min-w-[12px] ${member.likedBy?.includes(currentUser?.id || '') ? 'text-blue-600' : 'text-slate-500'}`}>{member.likes || 0}</span>
-                        </div>
-                        <button onClick={() => handleActionGuard(() => setKeyModalId(member.id))} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-90 ring-1 ring-amber-100 flex items-center justify-center">
-                          <Key className="w-3.5 h-3.5" />
-                        </button>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleShare(member)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.sharedBy?.includes(currentUser?.id || '') ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 ring-slate-100'}`}>
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
-                          <span className={`text-[11px] font-bold min-w-[12px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
-                        </div>
-                      </div>
+                  {/* Actions — single row */}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-slate-100 pt-2">
+                    {/* Like */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleLike(member.id)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.likedBy?.includes(currentUser?.id || '') ? 'bg-blue-600 text-white ring-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 ring-blue-100'}`}>
+                        <ThumbsUp className={`w-3.5 h-3.5 ${member.likedBy?.includes(currentUser?.id || '') ? 'fill-current' : ''}`} />
+                      </button>
+                      <span className={`text-[11px] font-bold min-w-[12px] ${member.likedBy?.includes(currentUser?.id || '') ? 'text-blue-600' : 'text-slate-500'}`}>{member.likes || 0}</span>
                     </div>
-                    {/* Paid row */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[7px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-1.5 py-1 rounded border border-indigo-100 shrink-0 leading-none">Paid</span>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <button onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }} onMouseDown={e => e.stopPropagation()} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all active:scale-90 ring-1 ring-indigo-100 flex items-center justify-center">
-                            <UserPlus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{member.invites || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setSuperSupportId(member.id)} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-all active:scale-95 font-black ring-1 ring-emerald-100 flex items-center justify-center">
-                            <span className="text-base leading-none">₮</span>
-                          </button>
-                          <span className="text-[11px] font-bold text-emerald-600 min-w-[20px]">{formatSupport(member.superSupports)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}>
-                            <Crown className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length}</span>
-                        </div>
-                      </div>
+                    {/* Key */}
+                    <button onClick={() => handleActionGuard(() => setKeyModalId(member.id))} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all active:scale-90 ring-1 ring-amber-100 flex items-center justify-center shrink-0">
+                      <Key className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Share */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleShare(member)} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${member.sharedBy?.includes(currentUser?.id || '') ? 'bg-slate-600 text-white ring-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 ring-slate-100'}`}>
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
+                      <span className={`text-[11px] font-bold min-w-[12px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
+                    </div>
+                    <div className="w-px h-4 bg-slate-200 shrink-0" />
+                    {/* Invite */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }} onMouseDown={e => e.stopPropagation()} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all active:scale-90 ring-1 ring-indigo-100 flex items-center justify-center">
+                        <UserPlus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{member.invites || 0}</span>
+                    </div>
+                    {/* ₮ */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => setSuperSupportId(member.id)} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-all active:scale-95 font-black ring-1 ring-emerald-100 flex items-center justify-center">
+                        <span className="text-base leading-none">₮</span>
+                      </button>
+                      <span className="text-[11px] font-bold text-emerald-600 min-w-[20px]">{formatSupport(member.superSupports)}</span>
+                    </div>
+                    {/* Membership */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))} className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}>
+                        <Crown className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[11px] font-bold text-slate-400 min-w-[12px]">{registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length}</span>
                     </div>
                   </div>
                 </motion.div>
