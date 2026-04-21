@@ -1,17 +1,21 @@
+export type MembershipTier = 'bronze' | 'silver' | 'gold' | 'diamond' | 'vip';
+
 export interface Member {
   id: string;
   name: string;
   phone: string;
-  goal: number; // The target amount in MNT
+  goal: number;
   likes: number;
   shares: number;
-  invites: number; // Number of people invited through this member
-  basicSupports: number; // Sum of 1000₮ supports
-  superSupports: number; // Sum of custom supports
+  invites: number;
+  basicSupports: number;
+  superSupports: number;
   createdAt: number;
-  expiresAt: number | null; // null means infinite, or timestamp
-  likedBy?: string[]; // Array of RegisteredUser.id
-  sharedBy?: string[]; // Array of RegisteredUser.id
+  expiresAt: number | null;
+  likedBy: string[];
+  sharedBy: string[];
+  followers: string[];       // RegisteredUser.id array
+  listingPaid: boolean;      // true if paid for listing (extra days / infinite)
 }
 
 export interface RegisteredUser {
@@ -21,4 +25,5 @@ export interface RegisteredUser {
   password: string;
   invitedByPhone: string;
   createdAt: number;
+  memberships: { memberId: string; tier: MembershipTier }[];
 }

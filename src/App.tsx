@@ -1,8 +1,18 @@
-import { useState, useEffect, useMemo, FormEvent } from 'react';
-import { Search, Plus, ThumbsUp, Heart, Star, DollarSign, X, Share2, Facebook, UserPlus, CheckCircle2, User, LogOut } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
+import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react';
-import { Member, RegisteredUser } from './types';
+import { Member, RegisteredUser, MembershipTier } from './types';
+
+const ADMIN_PASSWORD = 'admin2024';
+
+const MEMBERSHIP_TIERS: { tier: MembershipTier; label: string; amount: number; color: string; bg: string }[] = [
+  { tier: 'bronze',  label: 'Bronze',  amount: 1000,  color: 'text-amber-700',  bg: 'bg-amber-100 border-amber-300' },
+  { tier: 'silver',  label: 'Silver',  amount: 5000,  color: 'text-slate-500',  bg: 'bg-slate-100 border-slate-300' },
+  { tier: 'gold',    label: 'Gold',    amount: 10000, color: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-300' },
+  { tier: 'diamond', label: 'Diamond', amount: 20000, color: 'text-blue-500',   bg: 'bg-blue-50 border-blue-300' },
+  { tier: 'vip',     label: 'VIP',     amount: 50000, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-300' },
+];
 
 export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -34,10 +44,17 @@ export default function App() {
   const [superAmount, setSuperAmount] = useState('');
   const [isUserRegistered, setIsUserRegistered] = useState(false);
   const [tick, setTick] = useState(0);
+
+  // Follow / Membership / Admin
+  const [membershipTargetId, setMembershipTargetId] = useState<string | null>(null);
+  const [adminTargetId, setAdminTargetId] = useState<string | null>(null);
+  const [adminInput, setAdminInput] = useState('');
+  const [adminUnlockedId, setAdminUnlockedId] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [qpayInvoice, setQpayInvoice] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<{
-    type: 'support' | 'register' | 'add_member';
+    type: 'support' | 'register' | 'add_member' | 'membership';
     amount: number;
     data: any;
   } | null>(null);
@@ -71,6 +88,8 @@ export default function App() {
         superSupports: m.superSupports ?? (m.supports ? (m.supports % 1000 !== 0 ? m.supports : 0) : 0),
         likedBy: m.likedBy ?? [],
         sharedBy: m.sharedBy ?? [],
+        followers: m.followers ?? [],
+        listingPaid: m.listingPaid ?? false,
       }));
       setMembers(migrated);
     } else {
@@ -88,23 +107,13 @@ export default function App() {
           superSupports: 10000,
           createdAt: Date.now(),
           expiresAt: Date.now() + 86400000,
-          likedBy: [],
-          sharedBy: [],
+          likedBy: [], sharedBy: [], followers: [], listingPaid: false,
         },
         {
-            id: '2',
-            name: 'Галт Баатар',
-            phone: '88001122',
-            goal: 20000000,
-            likes: 12,
-            shares: 10,
-            invites: 0,
-            basicSupports: 5000,
-            superSupports: 150000,
-            createdAt: Date.now() - 10000,
-            expiresAt: null,
-            likedBy: [],
-            sharedBy: [],
+            id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000,
+            likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
+            createdAt: Date.now() - 10000, expiresAt: null,
+            likedBy: [], sharedBy: [], followers: [], listingPaid: true,
           }
       ];
       setMembers(initial);
@@ -170,7 +179,10 @@ export default function App() {
       const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.phone.includes(searchQuery);
       const isNotExpired = m.expiresAt === null || m.expiresAt > Date.now();
       return matchesSearch && isNotExpired;
-    }).sort((a, b) => b.createdAt - a.createdAt);
+    }).sort((a, b) => {
+      if (a.listingPaid !== b.listingPaid) return a.listingPaid ? 1 : -1;
+      return b.createdAt - a.createdAt;
+    });
   // tick ensures expired members are filtered out in real-time
   }, [members, searchQuery, tick]);
 
@@ -196,6 +208,7 @@ export default function App() {
       goal: parseInt(newGoal) || 0,
       createdAt: now,
       expiresAt: expiry,
+      listingPaid: price > 0,
     };
 
     if (price > 0) {
@@ -216,6 +229,8 @@ export default function App() {
       superSupports: 0,
       likedBy: [],
       sharedBy: [],
+      followers: [],
+      listingPaid: data.listingPaid ?? false,
     };
 
     setMembers([newMember, ...members]);
@@ -311,6 +326,9 @@ export default function App() {
         break;
       case 'add_member':
         finalizeAddMember(data);
+        break;
+      case 'membership':
+        finalizeMembership(data.memberId, data.tier);
         break;
     }
   };
@@ -440,6 +458,51 @@ export default function App() {
     alert("Амжилттай бүртгүүллээ!");
   };
 
+  const handleFollow = (id: string) => {
+    handleActionGuard(() => {
+      if (!currentUser) return;
+      setMembers(prev => prev.map(m => {
+        if (m.id !== id) return m;
+        const followers = m.followers || [];
+        const isFollowing = followers.includes(currentUser.id);
+        return { ...m, followers: isFollowing ? followers.filter(f => f !== currentUser.id) : [...followers, currentUser.id] };
+      }));
+    });
+  };
+
+  const finalizeMembership = (memberId: string, tier: MembershipTier) => {
+    if (!currentUser) return;
+    const updatedUser: RegisteredUser = {
+      ...currentUser,
+      memberships: [
+        ...(currentUser.memberships || []).filter(m => m.memberId !== memberId),
+        { memberId, tier },
+      ],
+    };
+    setCurrentUser(updatedUser);
+    setRegisteredUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setMembershipTargetId(null);
+    alert(`"${tier.charAt(0).toUpperCase() + tier.slice(1)}" гишүүн боллоо!`);
+  };
+
+  const startLongPress = (memberId: string) => {
+    longPressTimer.current = setTimeout(() => setAdminTargetId(memberId), 600);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleAdminLogin = (e: FormEvent) => {
+    e.preventDefault();
+    if (adminInput === ADMIN_PASSWORD) {
+      setAdminUnlockedId(adminTargetId);
+      setAdminInput('');
+    } else {
+      alert('Нууц үг буруу байна.');
+      setAdminInput('');
+    }
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
     setActiveTab('posts');
@@ -500,44 +563,66 @@ export default function App() {
         </button>
       </header>
 
-      {/* Search Bar */}
-      <div className="px-4 md:px-8 py-3 bg-white border-b border-slate-200 flex gap-2 sticky top-0 z-10 shadow-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Хайх..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
-          />
-        </div>
-      </div>
 
       {/* Main Content */}
       <main className="flex-1 p-3 md:p-6 pb-24">
         {activeTab === 'posts' ? (
           <div className="max-w-4xl mx-auto grid grid-cols-1 gap-2 pb-20">
+            {/* Search bar — only in Posts tab */}
+            <div className="relative mb-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Хайх..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm shadow-sm"
+              />
+            </div>
+
             <AnimatePresence mode="popLayout">
               {filteredMembers.length > 0 ? (
-                filteredMembers.map((member) => (
+                filteredMembers.map((member) => {
+                  const isFollowing = (member.followers || []).includes(currentUser?.id || '');
+                  const userMembership = (currentUser?.memberships || []).find(m => m.memberId === member.id);
+                  const tierInfo = userMembership ? MEMBERSHIP_TIERS.find(t => t.tier === userMembership.tier) : null;
+
+                  return (
                   <motion.div
                     layout
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={member.id}
-                    className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm relative overflow-hidden"
+                    onMouseDown={() => startLongPress(member.id)}
+                    onMouseUp={cancelLongPress}
+                    onMouseLeave={cancelLongPress}
+                    onTouchStart={() => startLongPress(member.id)}
+                    onTouchEnd={cancelLongPress}
+                    className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm relative overflow-hidden select-none"
                   >
+                    {/* Free / Paid badge */}
+                    <div className={`absolute top-0 left-0 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-br-lg ${member.listingPaid ? 'bg-indigo-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {member.listingPaid ? 'Paid' : 'Free'}
+                    </div>
+
                     {/* User Section (Top) */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 mt-3">
                       <div className="flex items-start gap-2.5">
                         <div className="w-9 h-9 shrink-0 mt-0.5 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-black text-base">
                           {member.name.charAt(0)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-slate-800 text-sm leading-none truncate">{member.name}</h3>
-                          <p className="text-slate-400 font-mono text-[9px] mt-1">{member.phone}</p>
+                          <p className="text-slate-400 text-[9px] mt-1 flex items-center gap-1">
+                            <UserCheck className="w-2.5 h-2.5" />
+                            {(member.followers || []).length} дагагч
+                            {tierInfo && (
+                              <span className={`ml-1 px-1.5 py-0.5 rounded font-bold text-[8px] border ${tierInfo.bg} ${tierInfo.color}`}>
+                                {tierInfo.label}
+                              </span>
+                            )}
+                          </p>
                         </div>
                       </div>
                       
@@ -621,21 +706,31 @@ export default function App() {
                       <span className={`text-[11px] font-bold min-w-[16px] ${member.sharedBy?.includes(currentUser?.id || '') ? 'text-slate-600' : 'text-slate-400'}`}>{member.shares || 0}</span>
                     </div>
 
-                    {/* Invite Action */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2">
-                        <button
-                        disabled={!!currentUser}
-                        onClick={() => setInviteId(member.id)}
-                        className={`p-1.5 rounded-lg transition-all flex items-center justify-center ring-1 ${!!currentUser ? 'bg-slate-50 text-emerald-500 ring-emerald-50 opacity-100' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 active:scale-90 ring-indigo-100'}`}
-                        title={!!currentUser ? "Бүртгүүлсэн" : "Бүртгүүлэх"}
+                    {/* Follow Action */}
+                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 pr-1.5">
+                      <button
+                        onClick={() => handleFollow(member.id)}
+                        className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${isFollowing ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100 ring-indigo-100'}`}
+                        title={isFollowing ? 'Дагахаа болих' : 'Дагах'}
                       >
-                       {!!currentUser ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+                        <UserCheck className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-[11px] font-bold text-indigo-600 min-w-[12px]">{member.invites}</span>
+                      <span className="text-[11px] font-bold text-indigo-500 min-w-[12px]">{(member.followers || []).length}</span>
+                    </div>
+
+                    {/* Membership Action */}
+                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2">
+                      <button
+                        onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))}
+                        className={`p-1.5 rounded-lg transition-all active:scale-90 flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-600 ring-slate-100'}`}
+                        title="Гишүүнчлэл"
+                      >
+                        <Crown className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </motion.div>
-              ))
+                );})
             ) : (
               <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl py-12 flex flex-col items-center justify-center opacity-40">
                 <Search className="w-8 h-8 text-slate-300 mb-2" />
@@ -1235,6 +1330,117 @@ export default function App() {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Admin Modal */}
+      <AnimatePresence>
+        {adminTargetId && (() => {
+          const member = members.find(m => m.id === adminTargetId);
+          const isUnlocked = adminUnlockedId === adminTargetId;
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => { setAdminTargetId(null); setAdminUnlockedId(null); setAdminInput(''); }}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-indigo-500" /> Админ харагдац
+                  </h2>
+                  <button onClick={() => { setAdminTargetId(null); setAdminUnlockedId(null); setAdminInput(''); }}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg"><X className="w-4 h-4 text-slate-400" /></button>
+                </div>
+                {isUnlocked ? (
+                  <div className="space-y-2 text-sm">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Нэр</p>
+                      <p className="font-bold text-slate-800">{member?.name}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Утас</p>
+                      <p className="font-mono font-bold text-slate-800">{member?.phone}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Нэмсэн огноо</p>
+                      <p className="font-bold text-slate-600">{member ? new Date(member.createdAt).toLocaleString() : ''}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleAdminLogin} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Админ нууц үг</label>
+                      <input autoFocus type="password" value={adminInput} onChange={e => setAdminInput(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="••••••••" />
+                    </div>
+                    <button type="submit" className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm active:scale-95 transition-all">
+                      <Lock className="w-4 h-4 inline mr-1.5" />НЭВТРЭХ
+                    </button>
+                  </form>
+                )}
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* Membership Modal */}
+      <AnimatePresence>
+        {membershipTargetId && (() => {
+          const member = members.find(m => m.id === membershipTargetId);
+          const userMembership = (currentUser?.memberships || []).find(m => m.memberId === membershipTargetId);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => setMembershipTargetId(null)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl">
+                <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-5 text-white">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <Crown className="w-6 h-6 mb-1 text-yellow-300" />
+                      <h3 className="text-lg font-bold">Гишүүнчлэл</h3>
+                      <p className="text-indigo-200 text-xs mt-0.5">{member?.name}</p>
+                    </div>
+                    <button onClick={() => setMembershipTargetId(null)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-indigo-100 mt-3 leading-relaxed">
+                    Нэг удаа төлөхөд насан туршийн гишүүн болно. Сар болгон төлөх шаардлагагүй.
+                  </p>
+                </div>
+                <div className="p-4 space-y-2">
+                  {MEMBERSHIP_TIERS.map(t => {
+                    const isCurrent = userMembership?.tier === t.tier;
+                    return (
+                      <button key={t.tier} onClick={() => {
+                        if (!isCurrent) {
+                          const amounts: Record<MembershipTier, number> = { bronze: 1000, silver: 5000, gold: 10000, diamond: 20000, vip: 50000 };
+                          initiatePayment('membership', amounts[t.tier], { memberId: membershipTargetId, tier: t.tier });
+                          setMembershipTargetId(null);
+                        }
+                      }}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isCurrent ? `${t.bg} ${t.color} font-black` : 'bg-slate-50 border-slate-100 hover:border-slate-300 text-slate-700'}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Crown className={`w-4 h-4 ${isCurrent ? t.color : 'text-slate-300'}`} />
+                          <span className="font-bold text-sm">{t.label}</span>
+                          {isCurrent && <span className="text-[9px] font-black uppercase tracking-widest bg-white/60 px-1.5 py-0.5 rounded">Одоогийн</span>}
+                        </div>
+                        <span className={`font-black text-sm ${isCurrent ? t.color : 'text-slate-500'}`}>
+                          {t.amount.toLocaleString()}₮
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* QPay Payment Modal */}
