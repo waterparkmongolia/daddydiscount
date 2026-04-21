@@ -646,8 +646,93 @@ export default function App() {
         </div>
         ) : activeTab === 'users' ? (
           <div className="max-w-4xl mx-auto space-y-6 pb-20">
-            {/* Auth Form */}
-            {!currentUser && (
+            {/* Users List */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <UsersIcon className="w-5 h-5 text-indigo-500" />
+                        Бүртгэлтэй хэрэглэгчид
+                    </h3>
+                    <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-full">{registeredUsers.length}</span>
+                </div>
+                <div className="divide-y divide-slate-50">
+                    {registeredUsers.length > 0 ? registeredUsers.map(user => (
+                        <div key={user.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold text-sm uppercase group-hover:bg-indigo-100 transition-colors">
+                                    {user.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-slate-800 leading-none">{user.name}</h4>
+                                    <p className="text-[10px] text-slate-400 mt-1.5 font-mono">{user.phone}</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                {user.invitedByPhone && (
+                                    <div className="text-[9px] text-slate-400 flex flex-col items-end gap-0.5">
+                                        <span className="uppercase font-bold text-[8px] tracking-widest text-slate-300">Урьсан:</span>
+                                        <div className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">
+                                          {user.invitedByPhone}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="py-20 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
+                            <UsersIcon className="w-12 h-12 opacity-20" />
+                            <p className="text-xs font-bold uppercase tracking-widest mt-4">Бүртгэлтэй хэрэглэгч алга</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-xl mx-auto space-y-6 pb-20 px-4">
+             {currentUser ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-br from-indigo-500 to-indigo-600" />
+                  <div className="relative pt-4">
+                    <div className="w-16 h-16 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg border-2 border-white mb-3">
+                        <span className="text-xl font-black text-indigo-600 uppercase">
+                          {currentUser.name.charAt(0)}
+                        </span>
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-800 leading-tight">{currentUser.name}</h2>
+                    <p className="text-slate-400 font-mono text-[10px] mt-0.5">{currentUser.phone}</p>
+                    
+                    <div className="grid grid-cols-2 gap-3 mt-6">
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Урилга</p>
+                        <p className="text-lg font-black text-indigo-600">
+                          {members.find(m => m.phone === currentUser.phone)?.invites || 0}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Бүртгүүлсэн</p>
+                        <p className="text-[10px] font-bold text-slate-600">
+                          {new Date(currentUser.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button 
+                      id="logout-button"
+                      onClick={handleLogout}
+                      className="mt-6 w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-red-100 transition-all border border-red-100"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      ГАРАХ
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -792,116 +877,6 @@ export default function App() {
                   )}
                 </AnimatePresence>
               </motion.div>
-            )}
-
-            {/* Users List */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                        <UsersIcon className="w-5 h-5 text-indigo-500" />
-                        Бүртгэлтэй хэрэглэгчид
-                    </h3>
-                    <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-full">{registeredUsers.length}</span>
-                </div>
-                <div className="divide-y divide-slate-50">
-                    {registeredUsers.length > 0 ? registeredUsers.map(user => (
-                        <div key={user.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold text-sm uppercase group-hover:bg-indigo-100 transition-colors">
-                                    {user.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800 leading-none">{user.name}</h4>
-                                    <p className="text-[10px] text-slate-400 mt-1.5 font-mono">{user.phone}</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                {user.invitedByPhone && (
-                                    <div className="text-[9px] text-slate-400 flex flex-col items-end gap-0.5">
-                                        <span className="uppercase font-bold text-[8px] tracking-widest text-slate-300">Урьсан:</span>
-                                        <div className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">
-                                          {user.invitedByPhone}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="py-20 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30">
-                            <UsersIcon className="w-12 h-12 opacity-20" />
-                            <p className="text-xs font-bold uppercase tracking-widest mt-4">Бүртгэлтэй хэрэглэгч алга</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-xl mx-auto space-y-6 pb-20 px-4">
-             {currentUser ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm text-center relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-br from-indigo-500 to-indigo-600" />
-                  <div className="relative pt-4">
-                    <div className="w-16 h-16 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg border-2 border-white mb-3">
-                        <span className="text-xl font-black text-indigo-600 uppercase">
-                          {currentUser.name.charAt(0)}
-                        </span>
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-800 leading-tight">{currentUser.name}</h2>
-                    <p className="text-slate-400 font-mono text-[10px] mt-0.5">{currentUser.phone}</p>
-                    
-                    <div className="grid grid-cols-2 gap-3 mt-6">
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Урилга</p>
-                        <p className="text-lg font-black text-indigo-600">
-                          {members.find(m => m.phone === currentUser.phone)?.invites || 0}
-                        </p>
-                      </div>
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Бүртгүүлсэн</p>
-                        <p className="text-[10px] font-bold text-slate-600">
-                          {new Date(currentUser.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button 
-                      id="logout-button"
-                      onClick={handleLogout}
-                      className="mt-6 w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-red-100 transition-all border border-red-100"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      ГАРАХ
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center shadow-sm">
-                <div className="w-20 h-20 bg-slate-50 rounded-3xl mx-auto flex items-center justify-center mb-6">
-                  <User className="w-10 h-10 text-slate-300" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Нэвтрээгүй байна</h3>
-                <p className="text-slate-400 text-sm mb-8">Үйлдэл хийхийн тулд бүртгүүлэх эсвэл нэвтрэх шаардлагатай.</p>
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => { setAuthMode('login'); setActiveTab('users'); }}
-                    className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-all"
-                  >
-                    НЭВТРЭХ
-                  </button>
-                  <button
-                    onClick={() => { setAuthMode('register'); setActiveTab('users'); }}
-                    className="w-full py-4 bg-white text-indigo-600 border-2 border-indigo-100 rounded-2xl font-bold active:scale-95 transition-all"
-                  >
-                    БҮРТГҮҮЛЭХ
-                  </button>
-                </div>
-              </div>
             )}
           </div>
         )}
