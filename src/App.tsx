@@ -5,6 +5,7 @@ import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react
 import { Member, RegisteredUser, MembershipTier } from './types';
 
 const ADMIN_PASSWORD = 'admin2024';
+const SPECIAL_CODE = 'DADDY2024';
 
 const MEMBERSHIP_TIERS: { tier: MembershipTier; label: string; amount: number; color: string; bg: string }[] = [
   { tier: 'bronze',  label: 'Bronze',  amount: 1000,  color: 'text-amber-700',  bg: 'bg-amber-100 border-amber-300' },
@@ -26,9 +27,10 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const [newGoalName, setNewGoalName] = useState('');
   const [newGoal, setNewGoal] = useState('');
-  const [expiryOption, setExpiryOption] = useState<'24h' | 'extra' | 'infinite'>('24h');
-  const [extraDays, setExtraDays] = useState('0');
+  const [expiryOption, setExpiryOption] = useState<'24h' | 'special' | 'infinite'>('24h');
+  const [specialCodeInput, setSpecialCodeInput] = useState('');
   
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
@@ -97,6 +99,7 @@ export default function App() {
         shares: m.shares ?? 0,
         invites: m.invites ?? 0,
         goal: m.goal ?? 0,
+        goalName: m.goalName ?? '',
         expiresAt: m.expiresAt ?? null,
         basicSupports: m.basicSupports ?? (m.supports ? (m.supports % 1000 === 0 ? m.supports : 0) : 0),
         superSupports: m.superSupports ?? (m.supports ? (m.supports % 1000 !== 0 ? m.supports : 0) : 0),
@@ -117,6 +120,7 @@ export default function App() {
           name: 'Хэрэглэгч №1',
           phone: '99110022',
           goal: 1000000,
+          goalName: 'Утас авах',
           likes: 5,
           shares: 2,
           invites: 0,
@@ -127,7 +131,7 @@ export default function App() {
           likedBy: [], sharedBy: [], followers: [], listingPaid: false, contributions: [], views: 0, viewedBy: [],
         },
         {
-            id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000,
+            id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000, goalName: 'Вэбсайт хийлгэх',
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
             likedBy: [], sharedBy: [], followers: [], listingPaid: true, contributions: [], views: 0, viewedBy: [],
@@ -231,27 +235,35 @@ export default function App() {
 
   const handleAddMember = (e: FormEvent) => {
     e.preventDefault();
-    if (!newName || !newPhone) return;
+    if (!newName || !newPhone || !newGoalName) return;
 
-    let expiry: number | null = null;
     const now = Date.now();
-    if (expiryOption === '24h') {
-        expiry = now + 86400000;
-    } else if (expiryOption === 'extra') {
-        expiry = now + 86400000 + (parseInt(extraDays) * 86400000);
-    } else if (expiryOption === 'infinite') {
-        expiry = null;
-    }
+    let expiry: number | null = null;
+    let price = 0;
+    let listingPaid = false;
 
-    const price = expiryOption === '24h' ? 0 : (expiryOption === 'infinite' ? (parseInt(newGoal) * 0.5) : parseInt(extraDays) * 1000);
+    if (expiryOption === '24h') {
+      expiry = now + 86400000;
+    } else if (expiryOption === 'special') {
+      if (specialCodeInput.trim() !== SPECIAL_CODE) {
+        alert('Тусгай код буруу байна.');
+        return;
+      }
+      expiry = null;
+    } else if (expiryOption === 'infinite') {
+      expiry = null;
+      price = (parseInt(newGoal) || 0) * 0.5;
+      listingPaid = true;
+    }
 
     const newMemberData = {
       name: newName,
       phone: newPhone.replace(/\D/g, ''),
       goal: parseInt(newGoal) || 0,
+      goalName: newGoalName,
       createdAt: now,
       expiresAt: expiry,
-      listingPaid: price > 0,
+      listingPaid,
     };
 
     if (price > 0) {
@@ -265,6 +277,7 @@ export default function App() {
     const newMember: Member = {
       id: crypto.randomUUID(),
       ...data,
+      goalName: data.goalName ?? '',
       likes: 0,
       shares: 0,
       invites: 0,
@@ -282,9 +295,10 @@ export default function App() {
     setMembers([newMember, ...members]);
     setNewName('');
     setNewPhone('');
+    setNewGoalName('');
     setNewGoal('');
     setExpiryOption('24h');
-    setExtraDays('0');
+    setSpecialCodeInput('');
     setIsModalOpen(false);
   };
 
@@ -706,6 +720,9 @@ export default function App() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-slate-800 text-sm leading-none truncate">{member.name}</h3>
+                          {member.goalName && (
+                            <p className="text-indigo-600 text-[10px] font-bold mt-0.5 truncate">{member.goalName}</p>
+                          )}
                           <p className="text-slate-400 text-[9px] mt-1 flex items-center gap-1.5">
                             <UserCheck className="w-2.5 h-2.5" />
                             {(member.followers || []).length} дагагч
@@ -1204,106 +1221,100 @@ export default function App() {
                 </button>
               </div>
               <form onSubmit={handleAddMember} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Нэр</label>
-                  <input
-                    required
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
-                    placeholder="Бат-Эрдэнэ"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Нэр</label>
+                    <input required type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      placeholder="Бат-Эрдэнэ" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Дугаар</label>
+                    <input required type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                      placeholder="9911-XXXX" />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Дугаар</label>
-                  <input
-                    required
-                    type="tel"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
-                    placeholder="9911-XXXX"
-                  />
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилго Нэр</label>
+                  <input required type="text" value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                    placeholder="Утас авах, Вэбсайт хийлгэх..." />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилго (₮)</label>
-                  <input
-                    required
-                    type="number"
-                    value={newGoal}
-                    onChange={(e) => setNewGoal(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm font-bold text-slate-700"
-                    placeholder="20,000,000"
-                  />
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Зорилго Үнэ (₮)</label>
+                  <input required type="number" value={newGoal} onChange={(e) => setNewGoal(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
+                    placeholder="20,000,000" />
                 </div>
 
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Хугацаа Сонгох</label>
                   <div className="grid grid-cols-1 gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setExpiryOption('24h')}
-                        className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === '24h' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === '24h' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
-                                <Clock className="w-4 h-4" />
-                            </div>
-                            <div className="text-left">
-                                <p className="text-xs font-bold text-slate-700">24 Цаг</p>
-                                <p className="text-[9px] text-slate-400">Үнэгүй байршина</p>
-                            </div>
+                    {/* 24h */}
+                    <button type="button" onClick={() => setExpiryOption('24h')}
+                      className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === '24h' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === '24h' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
+                          <Clock className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-black text-emerald-500 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100 uppercase">Үнэгүй</span>
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-slate-700">24 Цаг</p>
+                          <p className="text-[9px] text-slate-400">Үнэгүй байршина</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black text-emerald-500 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100 uppercase">Үнэгүй</span>
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={() => setExpiryOption('extra')}
-                        className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === 'extra' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}
-                    >
+                    {/* Special code */}
+                    <div className={`border rounded-xl transition-all ${expiryOption === 'special' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                      <button type="button" onClick={() => setExpiryOption('special')}
+                        className="w-full flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'extra' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
-                                <Plus className="w-4 h-4" />
-                            </div>
-                            <div className="text-left">
-                                <p className="text-xs font-bold text-slate-700">Нэмэлт хугацаа</p>
-                                <div className="flex items-center gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
-                                    <input 
-                                        type="number"
-                                        value={extraDays}
-                                        onChange={(e) => setExtraDays(e.target.value)}
-                                        className="w-12 px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-bold outline-none focus:border-indigo-300"
-                                        placeholder="Өдөр"
-                                    />
-                                    <span className="text-[9px] text-slate-400">хоног нэмэх</span>
-                                </div>
-                            </div>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'special' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                            <Key className="w-4 h-4" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-slate-700">Тусгай код</p>
+                            <p className="text-[9px] text-slate-400">Хугацаагүй, үнэгүй</p>
+                          </div>
                         </div>
-                        <div className="text-right flex flex-col items-end">
-                            <span className="text-xs font-black text-emerald-500">{(parseInt(extraDays) || 0) * 1000}₮</span>
-                            <span className="text-[8px] text-slate-400 px-1.5 py-0.5 bg-slate-100 rounded uppercase font-bold mt-1">1к / 24ц</span>
+                        <span className="text-[10px] font-black text-indigo-500 px-2 py-1 bg-indigo-100 rounded-full uppercase">Код</span>
+                      </button>
+                      {expiryOption === 'special' && (
+                        <div className="px-4 pb-3" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={specialCodeInput}
+                            onChange={(e) => setSpecialCodeInput(e.target.value)}
+                            className={`w-full px-3 py-2 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-400 tracking-widest uppercase ${specialCodeInput && specialCodeInput !== SPECIAL_CODE ? 'border-red-300 bg-red-50 text-red-600' : specialCodeInput === SPECIAL_CODE ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white'}`}
+                            placeholder="XXXXXXXX"
+                          />
+                          {specialCodeInput === SPECIAL_CODE && (
+                            <p className="text-[10px] text-emerald-600 font-bold mt-1 ml-1">✓ Зөв код — үнэгүй, хугацаагүй байршина</p>
+                          )}
+                          {specialCodeInput && specialCodeInput !== SPECIAL_CODE && (
+                            <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">Код буруу байна</p>
+                          )}
                         </div>
-                    </button>
+                      )}
+                    </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setExpiryOption('infinite')}
-                        className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === 'infinite' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'infinite' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
-                                <AlertCircle className="w-4 h-4" />
-                            </div>
-                            <div className="text-left">
-                                <p className="text-xs font-bold text-slate-700">Хугацаагүй</p>
-                                <p className="text-[9px] text-slate-400">Биелэх хүртэл</p>
-                            </div>
+                    {/* Infinite paid */}
+                    <button type="button" onClick={() => setExpiryOption('infinite')}
+                      className={`group flex items-center justify-between px-4 py-3 border rounded-xl transition-all ${expiryOption === 'infinite' ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'infinite' ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-400 group-hover:bg-slate-300'}`}>
+                          <AlertCircle className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-black text-emerald-500 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100 uppercase tracking-tighter">
-                            {newGoal ? (parseInt(newGoal) * 0.5).toLocaleString() : '...'}₮
-                        </span>
+                        <div className="text-left">
+                          <p className="text-xs font-bold text-slate-700">Хугацаагүй</p>
+                          <p className="text-[9px] text-slate-400">Биелэх хүртэл</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black text-emerald-500 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100 uppercase tracking-tighter">
+                        {newGoal ? (parseInt(newGoal) * 0.5).toLocaleString() : '...'}₮
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1311,13 +1322,11 @@ export default function App() {
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Нийт төлбөр</span>
                     <span className="text-lg font-black text-slate-800 ml-1">
-                      {(expiryOption === '24h' ? 0 : (expiryOption === 'infinite' ? (parseInt(newGoal || '0') * 0.5) : parseInt(extraDays || '0') * 1000)).toLocaleString()}₮
+                      {(expiryOption === '24h' || expiryOption === 'special' ? 0 : (parseInt(newGoal || '0') * 0.5)).toLocaleString()}₮
                     </span>
                   </div>
-                  <button
-                    type="submit"
-                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
-                  >
+                  <button type="submit"
+                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95">
                     БАТЛАХ
                   </button>
                 </div>

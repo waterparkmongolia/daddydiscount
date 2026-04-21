@@ -5,6 +5,7 @@ export interface Member {
   name: string;
   phone: string;
   goal: number;
+  goalName: string;
   likes: number;
   shares: number;
   invites: number;
