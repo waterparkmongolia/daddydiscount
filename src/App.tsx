@@ -746,6 +746,18 @@ export default function App() {
                         <Crown className="w-3.5 h-3.5" />
                       </button>
                     </div>
+
+                    {/* Invite / Register Action */}
+                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2 ml-auto shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }}
+                        onMouseDown={e => e.stopPropagation()}
+                        className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all active:scale-90 flex items-center justify-center ring-1 ring-indigo-100"
+                        title="Бүртгүүлэх"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
                 );})
