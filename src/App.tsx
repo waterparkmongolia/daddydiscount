@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
-import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye, Key } from 'lucide-react';
+import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye, Key, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react';
 import { Member, RegisteredUser, MembershipTier, GoalType } from './types';
@@ -69,6 +69,8 @@ export default function App() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapCountRef = useRef<Record<string, number>>({});
   const tapTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const swipeTouchStartX = useRef<number | null>(null);
+  const [swipedCardId, setSwipedCardId] = useState<string | null>(null);
   const [likedBurstIds, setLikedBurstIds] = useState<string[]>([]);
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState<string>('');
   const [qpayInvoice, setQpayInvoice] = useState<any>(null);
@@ -781,10 +783,51 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={member.id}
-                    onDoubleClick={() => handleDoubleTap(member.id)}
-                    onTouchEnd={() => handleDoubleTap(member.id)}
-                    className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm relative overflow-hidden select-none"
+                    className="rounded-xl shadow-sm relative overflow-hidden select-none"
                   >
+                    {/* Social links panel — revealed on swipe left */}
+                    <div className="absolute right-0 top-0 bottom-0 w-28 bg-slate-800 rounded-r-xl flex flex-col items-center justify-center gap-2 z-0">
+                      <a href="https://www.facebook.com/daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-base active:scale-90 transition-transform">
+                        f
+                      </a>
+                      <a href="https://www.instagram.com/daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[10px] font-black active:scale-90 transition-transform"
+                        style={{ background: 'linear-gradient(135deg,#e1306c,#833ab4)' }}>
+                        IG
+                      </a>
+                      <a href="https://www.youtube.com/@daddydeveloperdev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white text-xs font-black active:scale-90 transition-transform">
+                        ▶
+                      </a>
+                      <a href="https://www.daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center active:scale-90 transition-transform">
+                        <Globe className="w-4 h-4 text-white" />
+                      </a>
+                    </div>
+
+                    {/* Swipeable card content */}
+                    <motion.div
+                      animate={{ x: swipedCardId === member.id ? -112 : 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                      onDoubleClick={() => handleDoubleTap(member.id)}
+                      onTouchStart={(e) => { swipeTouchStartX.current = e.touches[0].clientX; }}
+                      onTouchEnd={(e) => {
+                        const startX = swipeTouchStartX.current;
+                        swipeTouchStartX.current = null;
+                        if (startX !== null) {
+                          const delta = e.changedTouches[0].clientX - startX;
+                          if (delta < -40) { setSwipedCardId(member.id); return; }
+                          if (delta > 40) { setSwipedCardId(null); return; }
+                        }
+                        handleDoubleTap(member.id);
+                      }}
+                      className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-3 relative z-10"
+                    >
                     {/* Free / Paid badge */}
                     <div className={`absolute top-0 left-0 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-br-lg ${member.listingPaid ? 'bg-indigo-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
                       {member.listingPaid ? 'Paid' : 'Free'}
@@ -839,15 +882,24 @@ export default function App() {
                             )}
                           </p>
                         </div>
-                        {/* Follow button — top right of card */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); cancelLongPress(); handleFollow(member.id); }}
-                          onMouseDown={e => e.stopPropagation()}
-                          className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 border ${isFollowing ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
-                        >
-                          <UserCheck className="w-3 h-3" />
-                          {isFollowing ? 'Дагаж байна' : 'Дагах'}
-                        </button>
+                        {/* Урих + Дагах buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setInviteId(member.id); }}
+                            onMouseDown={e => e.stopPropagation()}
+                            className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 border bg-white text-indigo-500 border-indigo-200 hover:bg-indigo-50"
+                          >
+                            Урих
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); cancelLongPress(); handleFollow(member.id); }}
+                            onMouseDown={e => e.stopPropagation()}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 border ${isFollowing ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                          >
+                            <UserCheck className="w-3 h-3" />
+                            {isFollowing ? 'Дагаж байна' : 'Дагах'}
+                          </button>
+                        </div>
                       </div>
                       
                       {(() => {
@@ -913,7 +965,6 @@ export default function App() {
                     const isLiked = member.likedBy?.includes(currentUser?.id || '');
                     const isShared = member.sharedBy?.includes(currentUser?.id || '');
                     const isBursting = likedBurstIds.includes(member.id);
-                    const memberCount = registeredUsers.filter(u => (u.memberships || []).some(ms => ms.memberId === member.id)).length;
                     return (
                     <div className="flex items-center justify-between border-t border-slate-100 pt-2">
                       {/* Like */}
@@ -992,32 +1043,6 @@ export default function App() {
                         </AnimatePresence>
                       </div>
 
-                      <div className="w-px h-4 bg-slate-200 shrink-0" />
-
-                      {/* Invite */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <motion.button
-                          onClick={(e) => { e.stopPropagation(); cancelLongPress(); setInviteId(member.id); }}
-                          onMouseDown={e => e.stopPropagation()}
-                          whileTap={{ scale: 0.78 }}
-                          whileHover={{ scale: 1.08 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                          className="p-1 rounded-md bg-indigo-50 text-indigo-500 ring-1 ring-indigo-100 flex items-center justify-center"
-                        >
-                          <UserPlus className="w-3 h-3" />
-                        </motion.button>
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={member.invites}
-                            initial={{ opacity: 0, y: -6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 6 }}
-                            transition={{ duration: 0.2 }}
-                            className="text-[11px] font-bold text-slate-400 min-w-[12px]"
-                          >{member.invites || 0}</motion.span>
-                        </AnimatePresence>
-                      </div>
-
                       {/* ₮ */}
                       <div className="flex items-center gap-1 shrink-0">
                         <motion.button
@@ -1031,32 +1056,11 @@ export default function App() {
                         <span className="text-[10px] font-bold text-emerald-600 min-w-[16px]">{formatSupport(member.superSupports)}</span>
                       </div>
 
-                      {/* Membership / Crown */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <motion.button
-                          onClick={() => handleActionGuard(() => setMembershipTargetId(member.id))}
-                          whileTap={{ scale: 0.78, rotate: -12 }}
-                          whileHover={{ scale: 1.08, rotate: 5 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                          className={`p-1 rounded-md flex items-center justify-center ring-1 ${tierInfo ? `${tierInfo.bg} ${tierInfo.color} ring-current` : 'bg-slate-50 text-slate-400 ring-slate-100'}`}
-                        >
-                          <Crown className="w-3 h-3" />
-                        </motion.button>
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={memberCount}
-                            initial={{ opacity: 0, y: -6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 6 }}
-                            transition={{ duration: 0.2 }}
-                            className="text-[11px] font-bold text-slate-400 min-w-[12px]"
-                          >{memberCount}</motion.span>
-                        </AnimatePresence>
-                      </div>
                     </div>
                     );
                   })()}
-                </motion.div>
+                    </motion.div>
+                  </motion.div>
                 );})
             ) : (
               <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl py-12 flex flex-col items-center justify-center opacity-40">
