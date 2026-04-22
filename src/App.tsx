@@ -1026,7 +1026,7 @@ export default function App() {
                           transition={{ type: 'spring', stiffness: 600, damping: 12 }}
                           className="p-1 rounded-md bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 flex items-center justify-center font-black"
                         >
-                          <span className="text-xs leading-none">₮</span>
+                          <span className="w-3 h-3 flex items-center justify-center text-[10px] leading-none">₮</span>
                         </motion.button>
                         <span className="text-[10px] font-bold text-emerald-600 min-w-[16px]">{formatSupport(member.superSupports)}</span>
                       </div>
