@@ -19,6 +19,7 @@ export interface Member {
   sharedBy: string[];
   followers: string[];       // RegisteredUser.id array
   listingPaid: boolean;      // true if paid for listing (extra days / infinite)
+  discountPct: number;       // discount % offered on the item (0 = none)
   contributions: { userId: string; amount: number }[];
   views: number;
   viewedBy: string[];        // deviceId array

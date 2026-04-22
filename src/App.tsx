@@ -30,6 +30,7 @@ export default function App() {
   const [newGoalName, setNewGoalName] = useState('');
   const [newGoal, setNewGoal] = useState('');
   const [newGoalType, setNewGoalType] = useState<GoalType>('price');
+  const [newDiscount, setNewDiscount] = useState('');
   const [expiryOption, setExpiryOption] = useState<'24h' | 'special' | 'infinite'>('24h');
   const [specialCodeInput, setSpecialCodeInput] = useState('');
   
@@ -116,6 +117,7 @@ export default function App() {
         views: m.views ?? 0,
         viewedBy: m.viewedBy ?? [],
         goalType: m.goalType ?? 'price',
+        discountPct: m.discountPct ?? 0,
       }));
       setMembers(migrated);
     } else {
@@ -135,14 +137,14 @@ export default function App() {
           superSupports: 10000,
           createdAt: Date.now(),
           expiresAt: Date.now() + 86400000,
-          likedBy: [], sharedBy: [], followers: [], listingPaid: false, contributions: [], views: 0, viewedBy: [],
+          likedBy: [], sharedBy: [], followers: [], listingPaid: false, discountPct: 0, contributions: [], views: 0, viewedBy: [],
         },
         {
             id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000, goalName: 'Вэбсайт хийлгэх',
             goalType: 'price' as GoalType,
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
-            likedBy: [], sharedBy: [], followers: [], listingPaid: true, contributions: [], views: 0, viewedBy: [],
+            likedBy: [], sharedBy: [], followers: [], listingPaid: true, discountPct: 0, contributions: [], views: 0, viewedBy: [],
           }
       ];
       setMembers(initial);
@@ -303,9 +305,12 @@ export default function App() {
       expiry = null;
     } else if (expiryOption === 'infinite') {
       expiry = null;
-      price = (parseInt(newGoal) || 0) * 0.5;
+      const discPct = Math.min(100, Math.max(0, parseInt(newDiscount) || 0));
+      price = (parseInt(newGoal) || 0) * 0.5 * (1 - discPct / 100);
       listingPaid = true;
     }
+
+    const discountPct = expiryOption === 'infinite' ? Math.min(100, Math.max(0, parseInt(newDiscount) || 0)) : 0;
 
     const newMemberData = {
       name: newName,
@@ -313,6 +318,7 @@ export default function App() {
       goal: parseInt(newGoal) || 0,
       goalName: newGoalName,
       goalType: newGoalType,
+      discountPct,
       createdAt: now,
       expiresAt: expiry,
       listingPaid,
@@ -330,6 +336,8 @@ export default function App() {
       id: crypto.randomUUID(),
       ...data,
       goalName: data.goalName ?? '',
+      goalType: data.goalType ?? 'price',
+      discountPct: data.discountPct ?? 0,
       likes: 0,
       shares: 0,
       invites: 0,
@@ -350,6 +358,7 @@ export default function App() {
     setNewGoalName('');
     setNewGoal('');
     setNewGoalType('price');
+    setNewDiscount('');
     setExpiryOption('24h');
     setSpecialCodeInput('');
     setIsModalOpen(false);
@@ -777,6 +786,12 @@ export default function App() {
                     <div className={`absolute top-0 left-0 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-br-lg ${member.listingPaid ? 'bg-indigo-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
                       {member.listingPaid ? 'Paid' : 'Free'}
                     </div>
+                    {/* Discount badge */}
+                    {(member.discountPct || 0) > 0 && (
+                      <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] font-black tracking-widest rounded-bl-lg bg-rose-500 text-white">
+                        -{member.discountPct}%
+                      </div>
+                    )}
 
                     {/* User Section (Top) */}
                     <div className="space-y-3 mt-3">
@@ -1548,21 +1563,51 @@ export default function App() {
                     </div>
 
                     {/* Infinite paid */}
-                    <button type="button" onClick={() => setExpiryOption('infinite')}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 border rounded-xl transition-all ${expiryOption === 'infinite' ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200' : 'bg-white border-slate-200'}`}>
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'infinite' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                          <AlertCircle className="w-3.5 h-3.5" />
+                    <div className={`border rounded-xl transition-all ${expiryOption === 'infinite' ? 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200' : 'bg-white border-slate-200'}`}>
+                      <button type="button" onClick={() => setExpiryOption('infinite')}
+                        className="w-full flex items-center justify-between px-3 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${expiryOption === 'infinite' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                            <AlertCircle className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-slate-700">Хугацаагүй</p>
+                            <p className="text-[9px] text-slate-400">Биелэх хүртэл — хөнгөлөлттэй</p>
+                          </div>
                         </div>
-                        <div className="text-left">
-                          <p className="text-xs font-bold text-slate-700">Хугацаагүй</p>
-                          <p className="text-[9px] text-slate-400">Биелэх хүртэл</p>
+                        <span className="text-[9px] font-black text-emerald-600 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
+                          {newGoal
+                            ? Math.round(parseInt(newGoal) * 0.5 * (1 - (Math.min(100, Math.max(0, parseInt(newDiscount) || 0)) / 100))).toLocaleString()
+                            : '...'}₮
+                        </span>
+                      </button>
+                      {expiryOption === 'infinite' && (
+                        <div className="px-3 pb-3 space-y-2" onClick={e => e.stopPropagation()}>
+                          <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Хөнгөлөлтийн хувь (%)</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={newDiscount}
+                              onChange={e => setNewDiscount(e.target.value)}
+                              className="w-24 px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-slate-700 text-center"
+                              placeholder="0"
+                            />
+                            <span className="text-sm font-black text-slate-500">%</span>
+                            {newDiscount && parseInt(newDiscount) > 0 && newGoal && (
+                              <div className="flex-1 text-right">
+                                <p className="text-[9px] text-slate-400 line-through">{Math.round(parseInt(newGoal) * 0.5).toLocaleString()}₮</p>
+                                <p className="text-xs font-black text-emerald-600">{Math.round(parseInt(newGoal) * 0.5 * (1 - Math.min(100, parseInt(newDiscount)) / 100)).toLocaleString()}₮</p>
+                              </div>
+                            )}
+                          </div>
+                          {newDiscount && parseInt(newDiscount) > 0 && (
+                            <p className="text-[9px] text-indigo-500">{parseInt(newDiscount)}% хөнгөлөлттэй байршина</p>
+                          )}
                         </div>
-                      </div>
-                      <span className="text-[9px] font-black text-emerald-600 px-2 py-0.5 bg-emerald-50 rounded-full border border-emerald-100">
-                        {newGoal ? (parseInt(newGoal) * 0.5).toLocaleString() : '...'}₮
-                      </span>
-                    </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
