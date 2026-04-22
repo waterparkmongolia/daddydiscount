@@ -116,6 +116,9 @@ export default function App() {
         superSupports: m.superSupports ?? (m.supports ? (m.supports % 1000 !== 0 ? m.supports : 0) : 0),
         likedBy: m.likedBy ?? [],
         sharedBy: m.sharedBy ?? [],
+        fbFollowedBy: m.fbFollowedBy ?? [],
+        ytFollowedBy: m.ytFollowedBy ?? [],
+        igFollowedBy: m.igFollowedBy ?? [],
         followers: m.followers ?? [],
         listingPaid: m.listingPaid ?? false,
         contributions: m.contributions ?? [],
@@ -142,14 +145,14 @@ export default function App() {
           superSupports: 10000,
           createdAt: Date.now(),
           expiresAt: Date.now() + 86400000,
-          likedBy: [], sharedBy: [], followers: [], listingPaid: false, discountPct: 0, contributions: [], views: 0, viewedBy: [],
+          likedBy: [], sharedBy: [], fbFollowedBy: [], ytFollowedBy: [], igFollowedBy: [], followers: [], listingPaid: false, discountPct: 0, contributions: [], views: 0, viewedBy: [],
         },
         {
             id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000, goalName: 'Вэбсайт хийлгэх',
             goalType: 'price' as GoalType,
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
-            likedBy: [], sharedBy: [], followers: [], listingPaid: true, discountPct: 0, contributions: [], views: 0, viewedBy: [],
+            likedBy: [], sharedBy: [], fbFollowedBy: [], ytFollowedBy: [], igFollowedBy: [], followers: [], listingPaid: true, discountPct: 0, contributions: [], views: 0, viewedBy: [],
           }
       ];
       setMembers(initial);
@@ -350,6 +353,9 @@ export default function App() {
       superSupports: 0,
       likedBy: [],
       sharedBy: [],
+      fbFollowedBy: [],
+      ytFollowedBy: [],
+      igFollowedBy: [],
       followers: [],
       listingPaid: data.listingPaid ?? false,
       contributions: [],
@@ -376,6 +382,18 @@ export default function App() {
       return;
     }
     callback();
+  };
+
+  const handleSocialFollow = (memberId: string, platform: 'fb' | 'yt' | 'ig', url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    if (!currentUser) return;
+    const key = platform === 'fb' ? 'fbFollowedBy' : platform === 'yt' ? 'ytFollowedBy' : 'igFollowedBy';
+    setMembers(prev => prev.map(m => {
+      if (m.id !== memberId) return m;
+      const arr: string[] = m[key] || [];
+      if (arr.includes(currentUser.id)) return m;
+      return { ...m, [key]: [...arr, currentUser.id] };
+    }));
   };
 
   const handleLike = (id: string) => {
@@ -1058,26 +1076,45 @@ export default function App() {
                       </div>
 
                       {/* Facebook */}
-                      <a href="https://www.facebook.com/daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="p-1 rounded-md bg-blue-600 text-white ring-1 ring-blue-600 flex items-center justify-center font-black text-[11px] w-5 h-5 active:scale-90 transition-transform shrink-0">
-                        f
-                      </a>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); handleSocialFollow(member.id, 'fb', 'https://www.facebook.com/daddydeveloper.dev'); }}
+                          whileTap={{ scale: 0.85 }}
+                          className="p-1 rounded-md bg-blue-600 text-white ring-1 ring-blue-600 flex items-center justify-center font-black text-[11px] w-5 h-5"
+                        >f</motion.button>
+                        {(member.fbFollowedBy || []).length > 0 && (
+                          <span className="text-[10px] font-bold text-blue-600">{(member.fbFollowedBy || []).length}</span>
+                        )}
+                      </div>
 
                       {/* YouTube */}
-                      <a href="https://www.youtube.com/@daddydeveloperdev" target="_blank" rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="p-1 rounded-md bg-red-600 text-white ring-1 ring-red-600 flex items-center justify-center text-[9px] font-black w-5 h-5 active:scale-90 transition-transform shrink-0">
-                        ▶
-                      </a>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); handleSocialFollow(member.id, 'yt', 'https://www.youtube.com/@daddydeveloperdev'); }}
+                          whileTap={{ scale: 0.85 }}
+                          className="p-1 rounded-md bg-red-600 text-white ring-1 ring-red-600 flex items-center justify-center text-[9px] font-black w-5 h-5"
+                        >▶</motion.button>
+                        {(member.ytFollowedBy || []).length > 0 && (
+                          <span className="text-[10px] font-bold text-red-500">{(member.ytFollowedBy || []).length}</span>
+                        )}
+                      </div>
 
                       {/* Instagram */}
-                      <a href="https://www.instagram.com/daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="p-1 rounded-md text-white ring-1 ring-pink-500 flex items-center justify-center text-[8px] font-black w-5 h-5 active:scale-90 transition-transform shrink-0"
-                        style={{ background: 'linear-gradient(135deg,#e1306c,#833ab4)' }}>
-                        IG
-                      </a>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); handleSocialFollow(member.id, 'ig', 'https://www.instagram.com/daddydeveloper.dev'); }}
+                          whileTap={{ scale: 0.85 }}
+                          className="p-1 rounded-md text-white ring-1 ring-pink-500 flex items-center justify-center w-5 h-5"
+                          style={{ background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af)' }}
+                        >
+                          <svg viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+                          </svg>
+                        </motion.button>
+                        {(member.igFollowedBy || []).length > 0 && (
+                          <span className="text-[10px] font-bold text-pink-500">{(member.igFollowedBy || []).length}</span>
+                        )}
+                      </div>
 
                     </div>
                     );

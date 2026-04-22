@@ -17,6 +17,9 @@ export interface Member {
   expiresAt: number | null;
   likedBy: string[];
   sharedBy: string[];
+  fbFollowedBy: string[];
+  ytFollowedBy: string[];
+  igFollowedBy: string[];
   followers: string[];       // RegisteredUser.id array
   listingPaid: boolean;      // true if paid for listing (extra days / infinite)
   discountPct: number;       // discount % offered on the item (0 = none)
