@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
-import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Eye, Key, Globe } from 'lucide-react';
+import { Search, Plus, ThumbsUp, Heart, Star, X, Share2, UserPlus, CheckCircle2, User, LogOut, UserCheck, Crown, Shield, Lock, Key, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutGrid, Users as UsersIcon, Clock, AlertCircle } from 'lucide-react';
 import { Member, RegisteredUser, MembershipTier, GoalType } from './types';
@@ -769,7 +769,6 @@ export default function App() {
             <AnimatePresence mode="popLayout">
               {filteredMembers.length > 0 ? (
                 filteredMembers.map((member) => {
-                  const isFollowing = (member.followers || []).includes(currentUser?.id || '');
                   const userMembership = (currentUser?.memberships || []).find(m => m.memberId === member.id);
                   const tierInfo = userMembership ? MEMBERSHIP_TIERS.find(t => t.tier === userMembership.tier) : null;
                   const pct = getTimeLeftPercent(member);
@@ -873,8 +872,8 @@ export default function App() {
                             <UserCheck className="w-2.5 h-2.5" />
                             {(member.followers || []).length} дагагч
                             <span className="text-slate-300">·</span>
-                            <Eye className="w-2.5 h-2.5" />
-                            {(member.views || 0).toLocaleString()} үзэлт
+                            <UserPlus className="w-2.5 h-2.5" />
+                            {member.invites || 0} урих
                             {tierInfo && (
                               <span className={`ml-1 px-1.5 py-0.5 rounded font-bold text-[8px] border ${tierInfo.bg} ${tierInfo.color}`}>
                                 {tierInfo.label}
@@ -891,14 +890,16 @@ export default function App() {
                           >
                             Урих
                           </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); cancelLongPress(); handleFollow(member.id); }}
-                            onMouseDown={e => e.stopPropagation()}
-                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 border ${isFollowing ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                          <a
+                            href="https://www.facebook.com/javkhlaan"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 border bg-blue-600 text-white border-blue-600"
                           >
-                            <UserCheck className="w-3 h-3" />
-                            {isFollowing ? 'Дагаж байна' : 'Дагах'}
-                          </button>
+                            <span className="font-black">f</span>
+                            Дагах
+                          </a>
                         </div>
                       </div>
                       
@@ -1055,6 +1056,28 @@ export default function App() {
                         </motion.button>
                         <span className="text-[10px] font-bold text-emerald-600 min-w-[16px]">{formatSupport(member.superSupports)}</span>
                       </div>
+
+                      {/* Facebook */}
+                      <a href="https://www.facebook.com/daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="p-1 rounded-md bg-blue-600 text-white ring-1 ring-blue-600 flex items-center justify-center font-black text-[11px] w-5 h-5 active:scale-90 transition-transform shrink-0">
+                        f
+                      </a>
+
+                      {/* YouTube */}
+                      <a href="https://www.youtube.com/@daddydeveloperdev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="p-1 rounded-md bg-red-600 text-white ring-1 ring-red-600 flex items-center justify-center text-[9px] font-black w-5 h-5 active:scale-90 transition-transform shrink-0">
+                        ▶
+                      </a>
+
+                      {/* Instagram */}
+                      <a href="https://www.instagram.com/daddydeveloper.dev" target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="p-1 rounded-md text-white ring-1 ring-pink-500 flex items-center justify-center text-[8px] font-black w-5 h-5 active:scale-90 transition-transform shrink-0"
+                        style={{ background: 'linear-gradient(135deg,#e1306c,#833ab4)' }}>
+                        IG
+                      </a>
 
                     </div>
                     );
