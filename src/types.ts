@@ -20,6 +20,7 @@ export interface Member {
   fbFollowedBy: string[];
   ytFollowedBy: string[];
   igFollowedBy: string[];
+  webFollowedBy: string[];
   followers: string[];       // RegisteredUser.id array
   listingPaid: boolean;      // true if paid for listing (extra days / infinite)
   discountPct: number;       // discount % offered on the item (0 = none)

@@ -119,6 +119,7 @@ export default function App() {
         fbFollowedBy: m.fbFollowedBy ?? [],
         ytFollowedBy: m.ytFollowedBy ?? [],
         igFollowedBy: m.igFollowedBy ?? [],
+        webFollowedBy: m.webFollowedBy ?? [],
         followers: m.followers ?? [],
         listingPaid: m.listingPaid ?? false,
         contributions: m.contributions ?? [],
@@ -145,14 +146,14 @@ export default function App() {
           superSupports: 10000,
           createdAt: Date.now(),
           expiresAt: Date.now() + 86400000,
-          likedBy: [], sharedBy: [], fbFollowedBy: [], ytFollowedBy: [], igFollowedBy: [], followers: [], listingPaid: false, discountPct: 0, contributions: [], views: 0, viewedBy: [],
+          likedBy: [], sharedBy: [], fbFollowedBy: [], ytFollowedBy: [], igFollowedBy: [], webFollowedBy: [], followers: [], listingPaid: false, discountPct: 0, contributions: [], views: 0, viewedBy: [],
         },
         {
             id: '2', name: 'Галт Баатар', phone: '88001122', goal: 20000000, goalName: 'Вэбсайт хийлгэх',
             goalType: 'price' as GoalType,
             likes: 12, shares: 10, invites: 0, basicSupports: 5000, superSupports: 150000,
             createdAt: Date.now() - 10000, expiresAt: null,
-            likedBy: [], sharedBy: [], fbFollowedBy: [], ytFollowedBy: [], igFollowedBy: [], followers: [], listingPaid: true, discountPct: 0, contributions: [], views: 0, viewedBy: [],
+            likedBy: [], sharedBy: [], fbFollowedBy: [], ytFollowedBy: [], igFollowedBy: [], webFollowedBy: [], followers: [], listingPaid: true, discountPct: 0, contributions: [], views: 0, viewedBy: [],
           }
       ];
       setMembers(initial);
@@ -356,6 +357,7 @@ export default function App() {
       fbFollowedBy: [],
       ytFollowedBy: [],
       igFollowedBy: [],
+      webFollowedBy: [],
       followers: [],
       listingPaid: data.listingPaid ?? false,
       contributions: [],
@@ -384,13 +386,13 @@ export default function App() {
     callback();
   };
 
-  const handleSocialFollow = (memberId: string, platform: 'fb' | 'yt' | 'ig', url: string) => {
+  const handleSocialFollow = (memberId: string, platform: 'fb' | 'yt' | 'ig' | 'web', url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
     if (!currentUser) return;
-    const key = platform === 'fb' ? 'fbFollowedBy' : platform === 'yt' ? 'ytFollowedBy' : 'igFollowedBy';
+    const key = platform === 'fb' ? 'fbFollowedBy' : platform === 'yt' ? 'ytFollowedBy' : platform === 'ig' ? 'igFollowedBy' : 'webFollowedBy';
     setMembers(prev => prev.map(m => {
       if (m.id !== memberId) return m;
-      const arr: string[] = m[key] || [];
+      const arr: string[] = (m as any)[key] || [];
       if (arr.includes(currentUser.id)) return m;
       return { ...m, [key]: [...arr, currentUser.id] };
     }));
@@ -1113,6 +1115,20 @@ export default function App() {
                         </motion.button>
                         {(member.igFollowedBy || []).length > 0 && (
                           <span className="text-[10px] font-bold text-pink-500">{(member.igFollowedBy || []).length}</span>
+                        )}
+                      </div>
+
+                      {/* Website */}
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <motion.button
+                          onClick={(e) => { e.stopPropagation(); handleSocialFollow(member.id, 'web', 'https://javkhlan.business'); }}
+                          whileTap={{ scale: 0.85 }}
+                          className="p-1 rounded-md bg-indigo-600 text-white ring-1 ring-indigo-600 flex items-center justify-center w-5 h-5"
+                        >
+                          <Globe className="w-2.5 h-2.5" />
+                        </motion.button>
+                        {(member.webFollowedBy || []).length > 0 && (
+                          <span className="text-[10px] font-bold text-indigo-600">{(member.webFollowedBy || []).length}</span>
                         )}
                       </div>
 
