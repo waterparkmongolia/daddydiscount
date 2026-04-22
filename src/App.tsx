@@ -63,6 +63,9 @@ export default function App() {
   const [adminTargetId, setAdminTargetId] = useState<string | null>(null);
   const [adminInput, setAdminInput] = useState('');
   const [adminUnlockedId, setAdminUnlockedId] = useState<string | null>(null);
+  const [addPostAuthOpen, setAddPostAuthOpen] = useState(false);
+  const [addPostAuthInput, setAddPostAuthInput] = useState('');
+  const [addPostAuthError, setAddPostAuthError] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapCountRef = useRef<Record<string, number>>({});
   const tapTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -736,7 +739,7 @@ export default function App() {
           Daddy Discounter
         </h1>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setAddPostAuthOpen(true); setAddPostAuthInput(''); setAddPostAuthError(false); }}
           className="flex items-center gap-1 bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold transition-all active:scale-95 shadow-sm text-[11px]"
         >
           <Plus className="w-3 h-3" />
@@ -1427,6 +1430,62 @@ export default function App() {
       </footer>
 
       {/* Add Modal */}
+      {/* Add-post admin auth gate */}
+      <AnimatePresence>
+        {addPostAuthOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setAddPostAuthOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="relative w-full max-w-xs bg-white rounded-2xl p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <Lock className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <h2 className="text-sm font-bold text-slate-800">Админ нэвтрэх</h2>
+                </div>
+                <button onClick={() => setAddPostAuthOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                  <X className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+              <form onSubmit={e => {
+                e.preventDefault();
+                if (addPostAuthInput === 'Нү#Админ1₮' || addPostAuthInput === 'Pw#Admin1$') {
+                  setAddPostAuthOpen(false);
+                  setAddPostAuthInput('');
+                  setAddPostAuthError(false);
+                  setIsModalOpen(true);
+                } else {
+                  setAddPostAuthError(true);
+                  setAddPostAuthInput('');
+                }
+              }} className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Нууц үг</label>
+                  <input
+                    autoFocus
+                    type="password"
+                    value={addPostAuthInput}
+                    onChange={e => { setAddPostAuthInput(e.target.value); setAddPostAuthError(false); }}
+                    className={`w-full px-3 py-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${addPostAuthError ? 'border-red-300 bg-red-50 text-red-600' : 'border-slate-200 bg-slate-50'}`}
+                    placeholder="••••••••"
+                  />
+                  {addPostAuthError && (
+                    <p className="text-[10px] text-red-500 font-bold ml-0.5">Нууц үг буруу байна</p>
+                  )}
+                </div>
+                <button type="submit"
+                  className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm active:scale-95 transition-all">
+                  НЭВТРЭХ
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
